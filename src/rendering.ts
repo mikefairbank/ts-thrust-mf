@@ -210,6 +210,8 @@ export function renderLevel(
   doorPolygon?: Point[] | null,
   switchSprites?: SwitchSprites,
 ) {
+  camY=Math.round(camY/2)*2;// try to reduce shimmering when camera scrolls vertically. (Dont want alternate raster lines for landscape to flicker)
+
   // Scale world coordinates to screen space
   const wx = (x: number) => x * WORLD_SCALE_X;
   const wy = (y: number) => y * WORLD_SCALE_Y;
