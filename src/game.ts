@@ -626,7 +626,6 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
 /** Reset level state for retry — preserves score, lives, levelNumber, missionNumber. */
 export function retryLevel(state: GameState): void {
   // Detach pod first if attached
-  console.log("RetryLevel");
   state.physics.detachPod();
 
   const ds = state.deathSequence;
