@@ -81,6 +81,7 @@ const demo = createDemoState();
 
 let lastTime = -1;
 let fps = 0;
+let cpuTimeRollingAverage = 0;
 let showFps = false;
 let paused = false;
 
@@ -312,6 +313,7 @@ async function startGame() {
   }
 
   function frame(time: number) {
+    const cpuStart = performance.now();
     const dt = lastTime < 0 ? 0 : (time - lastTime) / 1000;
     lastTime = time;
     handlePostProcessKeys();
@@ -496,7 +498,7 @@ async function startGame() {
       }
       if (showFps) {
         if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
-        const fpsText = String(Math.round(fps));
+        const fpsText = String((cpuTimeRollingAverage).toFixed(1))+"ms "+String(Math.round(fps))+"fps";
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, INTERNAL_H - 7, fpsText.length * 8 + 2, 7);
         drawText(ctx, fpsText, 1, INTERNAL_H - 6, "#ffffff");
@@ -564,7 +566,7 @@ async function startGame() {
       }
       if (showFps) {
         if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
-        const fpsText = String(Math.round(fps));
+        const fpsText = String((cpuTimeRollingAverage).toFixed(1))+"ms "+String(Math.round(fps))+"fps";
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, INTERNAL_H - 7, fpsText.length * 8 + 2, 7);
         drawText(ctx, fpsText, 1, INTERNAL_H - 6, "#ffffff");
@@ -767,7 +769,7 @@ async function startGame() {
 
     // --- Collision detection — skip during death sequence ---
     if (!game.deathSequence) {
-      const collision = testCollision(collisionBuf, shipMasks[spriteIdx], shipScreenX, shipScreenY);
+      const collision = testCollision(collisionImageData, shipMasks[spriteIdx], shipScreenX, shipScreenY);
       game.collisionResult = collision;
 
       // Ship collision → destroy ship (ship dies first)
@@ -782,7 +784,7 @@ async function startGame() {
         const shipCY = Math.round(game.player.y * WORLD_SCALE_Y - camY);
         const podCX = Math.round(game.physics.state.podX * WORLD_SCALE_X - camX);
         const podCY = Math.round(game.physics.state.podY * WORLD_SCALE_Y - camY);
-        const collisionPod = testCollision(collisionBuf, shipMasks[32], podCX-shipCenters[32].x, podCY-shipCenters[32].y);
+        const collisionPod = testCollision(collisionImageData, shipMasks[32], podCX-shipCenters[32].x, podCY-shipCenters[32].y);
         if (collisionPod !== CollisionResult.None && collisionPod !== CollisionResult.Pod && !game.deathSequence) {
           destroyAttachedPod(game);
           sounds.playExplosion();
@@ -897,7 +899,7 @@ async function startGame() {
     }
     if (showFps) {
       if (dt > 0) fps = fps * 0.95 + (1 / dt) * 0.05;
-      const fpsText = String(Math.round(fps));
+      const fpsText = String((cpuTimeRollingAverage).toFixed(1))+"ms "+String(Math.round(fps))+"fps";
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, INTERNAL_H - 7, fpsText.length * 8 + 2, 7);
       drawText(ctx, fpsText, 1, INTERNAL_H - 6, "#ffffff");
@@ -905,8 +907,9 @@ async function startGame() {
 
     postProcessFrame(time);
     requestAnimationFrame(frame);
+    const cpuEnd = performance.now();
+    cpuTimeRollingAverage=cpuTimeRollingAverage*0.95+(cpuEnd - cpuStart)*0.05
   }
-
   requestAnimationFrame(frame);
 }
 

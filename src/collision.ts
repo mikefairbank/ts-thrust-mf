@@ -212,7 +212,7 @@ export function testRectCollision(
   return false;
 }
 
-export function testCollision(
+/*export function testCollision(
   buf: CollisionBuffer,
   mask: SpriteMask,
   shipScreenX: number,
@@ -220,7 +220,14 @@ export function testCollision(
 ): CollisionResult {
   const { ctx, width, height } = buf;
   const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
+  const data = imageData.data;*/
+export function testCollision(
+  imageData: ImageData,
+  mask: SpriteMask,
+  shipScreenX: number,
+  shipScreenY: number,
+): CollisionResult {
+  const { data, width, height } = imageData;  
 
   let result = CollisionResult.None;
 
