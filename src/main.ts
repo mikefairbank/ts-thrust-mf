@@ -6,7 +6,7 @@ import podStandPng from "./sprites/pod_stand.png";
 import podPng from "./sprites/pod.png";
 import shieldPng from "./sprites/shield.png";
 import {levels} from "./levels";
-import {createGame, tick, retryLevel, triggerMessage, advanceToNextLevel, missionComplete, addScore, startTeleport, MESSAGE_DURATION, destroyPlayerShip, destroyAttachedPod, getPlanetExplodeBgColor} from "./game";
+import {createGame, tick, retryLevel, triggerMessage, advanceToNextLevel, missionComplete, addScore, startTeleport, MESSAGE_DURATION, destroyPlayerShip, destroyAttachedPod, getPlanetExplodeBgColor, SHIELD_GATE_MASK} from "./game";
 import {createCollisionBuffer, renderCollisionBuffer, testCollision, testLineCollision, testRectCollision, CollisionResult} from "./collision";
 import {renderBullets, removeBulletsHittingShip, removeCollidingBullets, renderPlayerBullets, processPlayerBulletCollisions} from "./bullets";
 import {renderExplosions, spawnExplosion, orColours} from "./explosions";
@@ -172,7 +172,9 @@ async function startGame() {
     }
 
     const doorPoly = getDoorPolygon(game.doorState, game.level.doorConfig, camX, camY);
-    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, shipCenters, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, game.shieldActive ? shieldSprite : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
+    const shieldGate = (game.fuelTickCounter & SHIELD_GATE_MASK) !== 0;
+
+    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, shipCenters, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSprite : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
 
     renderBullets(ctx, game.turretFiring.bullets, camX, camY, lineColor);
     renderPlayerBullets(ctx, game.playerShooting, camX, camY, lineColor);

@@ -24,7 +24,7 @@ const SCROLL_STEP_S = 3 / 100;
 const FUEL_ACTIVE_SLOTS = new Set([0, 3, 5, 8, 11, 13]);
 
 const TICK_SLOT_MASK = 0x0F;
-const SHIELD_GATE_MASK = 0x02;
+export const SHIELD_GATE_MASK = 0x02;
 const BYTE_MASK = 0xFF;
 const BONUS_LOOPS_BASE = 5;
 const BONUS_LOOPS_PLANET_DESTROYED = 5;
@@ -488,7 +488,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
     }
 
     // Shield active flickers with the gate (2-on/2-off)
-    state.shieldActive = spacebarDown && !state.fuelEmpty && shieldGate;
+    state.shieldActive = spacebarDown && !state.fuelEmpty;
 
     // Death sequence countdown (runs each game tick)
     if (dying) {
