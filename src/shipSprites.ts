@@ -39,6 +39,9 @@ import gunDownRight from './sprites/gun_down_right.png'
 import switchLeftPng from './sprites/switch_left.png'
 import switchRightPng from './sprites/switch_right.png'
 
+
+import { WORLD_SCALE_X, WORLD_SCALE_Y } from "./rendering";
+
 export interface TurretSprites {
   upLeft: ImageBitmap;
   upRight: ImageBitmap;
@@ -110,7 +113,23 @@ export interface SpriteCenter {
   y: number;
 }
 
-export async function loadShipSprites(): Promise<{ sprites: ImageBitmap[]; masks: SpriteMask[]; centers: SpriteCenter[] }> {
+export type WorldMaskPixel = {
+  dx: number;
+  dy: number;
+};
+
+export type WorldCenter = {
+  x: number;
+  y: number;
+};
+export async function loadShipSprites(): Promise<{
+  sprites: ImageBitmap[];
+  masks: SpriteMask[];
+  centers: SpriteCenter[];
+  worldMasks: WorldMaskPixel[][];
+  worldCenters: WorldCenter[];
+}> {
+
   const results = await Promise.all(spriteUrls.map(async (url) => {
     const img = new Image();
     img.src = url;
@@ -129,11 +148,10 @@ export async function loadShipSprites(): Promise<{ sprites: ImageBitmap[]; masks
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
+
       if (r < 128 && g < 128 && b < 128) {
-        // Black → transparent
         data[i + 3] = 0;
       } else {
-        // White → yellow (255, 255, 0)
         data[i] = 255;
         data[i + 1] = 255;
         data[i + 2] = 0;
@@ -141,12 +159,15 @@ export async function loadShipSprites(): Promise<{ sprites: ImageBitmap[]; masks
       }
     }
 
-    // Extract opaque pixel offsets for collision mask and compute center of mass
     const mask: SpriteMask = [];
-    let sumX = 0, sumY = 0, count = 0;
+    let sumX = 0;
+    let sumY = 0;
+    let count = 0;
+
     for (let y = 0; y < canvas.height; y++) {
       for (let x = 0; x < canvas.width; x++) {
         const idx = (y * canvas.width + x) * 4;
+
         if (data[idx + 3] > 0) {
           mask.push({ dx: x, dy: y });
           sumX += x;
@@ -155,11 +176,11 @@ export async function loadShipSprites(): Promise<{ sprites: ImageBitmap[]; masks
         }
       }
     }
+
     const center: SpriteCenter = {
       x: count > 0 ? sumX / count : canvas.width / 2,
       y: count > 0 ? sumY / count : canvas.height / 2,
     };
-
     ctx.putImageData(imageData, 0, 0);
     const bitmap = await createImageBitmap(canvas);
     return { sprite: bitmap, mask, center };
@@ -169,5 +190,15 @@ export async function loadShipSprites(): Promise<{ sprites: ImageBitmap[]; masks
     sprites: results.map(r => r.sprite),
     masks: results.map(r => r.mask),
     centers: results.map(r => r.center),
+    worldMasks: results.map(r =>
+      r.mask.map(p => ({
+        dx: p.dx / WORLD_SCALE_X,
+        dy: p.dy / WORLD_SCALE_Y,
+      }))
+    ),
+    worldCenters: results.map(r => ({
+      x: r.center.x / WORLD_SCALE_X,
+      y: r.center.y / WORLD_SCALE_Y,
+    })),
   };
 }

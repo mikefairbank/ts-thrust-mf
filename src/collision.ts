@@ -2,11 +2,6 @@ import { Level, SwitchPosition } from "./levels";
 import { fillRasteredPolygon, Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH } from "./rendering";
 import { SpriteMask, TurretSprites, SwitchSprites } from "./shipSprites";
 
-export const EXTRA_BORDER_BUFFER = 200; // This makes the collision canvas 
-// larger than the display canvas by this amount in all directions.  The purpose
-// is to allow the player to shoot enemy guns which are just off screen.
-
-
 export enum CollisionResult {
   None       = 0,
   Terrain    = 1,
@@ -17,257 +12,300 @@ export enum CollisionResult {
   Switch     = 6,
 }
 
-export interface CollisionBuffer {
-  canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-  width: number;
-  height: number;
+export function checkPolygonCollision(
+  poly: RasterPolygon,
+  worldX: number,
+  worldY: number,
+  dx: number,
+  dy: number,
+): boolean {
+  const x1 = worldX;
+  const x2 = worldX + dx - 1;
+  const y1 = Math.floor(worldY);
+  const y2 = Math.floor(worldY + dy - 1);
+  // Bounding-box reject
+  if (y2 < poly.topY || y1 > poly.bottomY) {
+    return false;
+  }
+  if (x2 < poly.leftX || x1 > poly.rightX) {
+    return false;
+  }
+  const startRow = Math.max(y1, poly.topY);
+  const endRow = Math.min(y2, poly.bottomY);
+  for (let y = startRow; y <= endRow; y++) {
+    const row = poly.rows[y - poly.topY];
+    if (x2 >= row.leftX && x1 <= row.rightX) {
+      return true;
+    }
+  }
+  return false;
 }
 
-// Sentinel colour for terrain in the collision buffer.
-// Blue is not used by any object type, so it's unambiguous.
-const TERRAIN_COLLISION_COLOUR = "#0000ff";
-
-export function createCollisionBuffer(width: number, height: number): CollisionBuffer {
-  const canvas = document.createElement("canvas");
-  canvas.width = width+EXTRA_BORDER_BUFFER*2;
-  canvas.height = height+EXTRA_BORDER_BUFFER*2;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-  return { canvas, ctx, width: canvas.width, height: canvas.height };
-}
-
-export function renderCollisionBuffer(
-  buf: CollisionBuffer,
+export type LevelItemCollision =
+  | { type: "generator"; x: number; y: number }
+  | { type: "fuel"; index: number; x: number; y: number }
+  | { type: "turret"; index: number; x: number; y: number }
+  | { type: "switch"; index: number; x: number; y: number }
+  | { type: "pod"; x: number; y: number }
+  | null;
+  
+export function checkForLevelItemCollision(
   level: Level,
-  camX: number,
-  camY: number,
-  fuelSprite?: ImageBitmap,
-  turretSprites?: TurretSprites,
-  powerPlantSprite?: ImageBitmap,
-  podStandSprite?: ImageBitmap,
-  podSprite?: ImageBitmap,
+  worldX: number,
+  worldY: number,
+  dx: number,
+  dy: number,
+  fuelSprite: ImageBitmap,
+  turretSprites: TurretSprites,
+  powerPlantSprite: ImageBitmap,
+  podStandSprite: ImageBitmap,
+  podSprite: ImageBitmap,
+  switchSprites: ImageBitmap,
   destroyedTurrets?: Set<number>,
   destroyedFuel?: Set<number>,
   generatorDestroyed?: boolean,
   podDetachedFromStand?: boolean,
-  switchSprites?: SwitchSprites,
-  doorPolygon?: RasterPolygon | null,
-  podX: number, podY: number,
-): void {
-  const { ctx, width, height } = buf;
-  ctx.clearRect(0, 0, width, height);
+  podX?: number,
+  podY?: number,
+): LevelItemCollision {
 
-  const wx = (x: number) => x * WORLD_SCALE_X+EXTRA_BORDER_BUFFER;
-  const wy = (y: number) => y * WORLD_SCALE_Y+EXTRA_BORDER_BUFFER;
+  const worldWidth = WORLD_WIDTH / WORLD_SCALE_X;
+  worldX = ((worldX % worldWidth) + worldWidth) % worldWidth;
 
-  // Terrain polygons at three offsets to handle wrapping.
-  // Offsets are dynamic so collision stays correct beyond one world-width.
-  const baseOffset = Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
-  const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
-  for (const offset of offsets) {
-    fillRasteredPolygon(ctx,level.landscapeLeftRasterisedPolygon, TERRAIN_COLLISION_COLOUR,camX - offset,camY, EXTRA_BORDER_BUFFER, EXTRA_BORDER_BUFFER);
-    fillRasteredPolygon(ctx,level.landscapeRightRasterisedPolygon, TERRAIN_COLLISION_COLOUR,camX - offset,camY, EXTRA_BORDER_BUFFER, EXTRA_BORDER_BUFFER);
-  }
-
-  // Door polygon (terrain collision) at wrapping offsets
-  if (doorPolygon) {
-    for (const offset of offsets) {
-      fillRasteredPolygon(ctx, doorPolygon, TERRAIN_COLLISION_COLOUR, camX - offset,camY, EXTRA_BORDER_BUFFER, EXTRA_BORDER_BUFFER);
-    }
-  }
-
-  // Objects (with wrapping)
-  const toScreenX = (worldX: number) => {
-    let sx = wx(worldX) - camX - EXTRA_BORDER_BUFFER;
-    while (sx < -WORLD_WIDTH / 2) sx += WORLD_WIDTH;
-    while (sx > WORLD_WIDTH / 2) sx -= WORLD_WIDTH;
-    return sx+EXTRA_BORDER_BUFFER;
+  const rectsOverlap = (
+    ax: number, ay: number, aw: number, ah: number,
+    bx: number, by: number, bw: number, bh: number,
+  ) => {
+    return (
+      ax < bx + bw &&
+      ax + aw > bx &&
+      ay < by + bh &&
+      ay + ah > by
+    );
   };
 
-  const drawMarker = (ox: number, oy: number, colour: string) => {
-    const sx = Math.round(toScreenX(ox));
-    const sy = Math.round(wy(oy) - camY);
-    ctx.fillStyle = colour;
-    ctx.fillRect(sx - 3, sy - 3, 7, 7);
-  };
-
+  // Generator
   if (!generatorDestroyed) {
-    if (powerPlantSprite) {
-      const sx = Math.round(toScreenX(level.powerPlant.x));
-      const sy = Math.round(wy(level.powerPlant.y) - camY);
-      ctx.fillStyle = bbcMicroColours.cyan;
-      ctx.fillRect(sx, sy - 2, powerPlantSprite.width, powerPlantSprite.height);
-    } else {
-      drawMarker(level.powerPlant.x, level.powerPlant.y, bbcMicroColours.cyan);
+    if (rectsOverlap(
+      worldX, worldY, dx, dy,
+      level.powerPlant.x, level.powerPlant.y,
+      powerPlantSprite.width / WORLD_SCALE_X,
+      powerPlantSprite.height / WORLD_SCALE_Y
+    )) {
+      return {
+        type: "generator",
+        x: level.powerPlant.x,
+        y: level.powerPlant.y,
+      };
     }
   }
+
+  // Pod stand / pod
   if (!podDetachedFromStand) {
-    if (podStandSprite) {
-      const sx = Math.round(toScreenX(level.podPedestal.x));
-      const sy = Math.round(wy(level.podPedestal.y) - camY);
-      ctx.fillStyle = bbcMicroColours.white;
-      ctx.fillRect(sx, sy - 1, podStandSprite.width, podStandSprite.height);
-    } else {
-      drawMarker(level.podPedestal.x, level.podPedestal.y, bbcMicroColours.white);
+    if (rectsOverlap(
+      worldX, worldY, dx, dy,
+      level.podPedestal.x,
+      level.podPedestal.y,
+      podStandSprite.width / WORLD_SCALE_X,
+      podStandSprite.height / WORLD_SCALE_Y
+    )) {
+      return {
+        type: "pod",
+        x: level.podPedestal.x,
+        y: level.podPedestal.y,
+      };
     }
-  } else {
-    // pod is picked up.  Draw pod.  Need to enable collision detection for player bullets into own pod.
-    const sx = Math.round(toScreenX(podX));
-    const sy = Math.round(wy(podY) - camY);
-    ctx.fillStyle = bbcMicroColours.white;
-    ctx.fillRect(sx, sy - 1, podSprite.width-1, podSprite.height-1);
-  }  
+  } else if (podX !== undefined && podY !== undefined) {
+    if (rectsOverlap(
+      worldX, worldY, dx, dy,
+      podX,
+      podY,
+      podSprite.width / WORLD_SCALE_X,
+      podSprite.height / WORLD_SCALE_Y
+    )) {
+      return {
+        type: "pod",
+        x: podX,
+        y: podY,
+      };
+    }
+  }
+
+  // Fuel
   for (let i = 0; i < level.fuel.length; i++) {
     if (destroyedFuel?.has(i)) continue;
+
     const f = level.fuel[i];
-    if (fuelSprite) {
-      const sx = Math.round(toScreenX(f.x));
-      const sy = Math.round(wy(f.y) - camY);
-      const fx = sx;
-      const fy = sy - 2;
-      ctx.fillStyle = bbcMicroColours.magenta;
-      ctx.fillRect(fx, fy, fuelSprite.width, fuelSprite.height);
-    } else {
-      drawMarker(f.x, f.y, bbcMicroColours.magenta);
+
+    if (rectsOverlap(
+      worldX, worldY, dx, dy,
+      f.x,
+      f.y,
+      fuelSprite.width / WORLD_SCALE_X,
+      fuelSprite.height / WORLD_SCALE_Y
+    )) {
+      return {
+        type: "fuel",
+        index: i,
+        x: f.x,
+        y: f.y,
+      };
     }
   }
+
+  // Turrets
+  const turretW = turretSprites.upRight.width / WORLD_SCALE_X;
+  const turretH = turretSprites.upRight.height / WORLD_SCALE_Y;
+
   for (let i = 0; i < level.turrets.length; i++) {
     if (destroyedTurrets?.has(i)) continue;
+
     const t = level.turrets[i];
-    if (turretSprites) {
-      // Use upRight as representative size (all 4 are the same dimensions)
-      const w = turretSprites.upRight.width;
-      const h = turretSprites.upRight.height;
-      const sx = Math.round(toScreenX(t.x));
-      const sy = Math.round(wy(t.y) - camY);
-      ctx.fillStyle = bbcMicroColours.red;
-      ctx.fillRect(sx, sy - 1, w, h);
-    } else {
-      drawMarker(t.x, t.y, bbcMicroColours.red);
+
+    if (rectsOverlap(
+      worldX, worldY, dx, dy,
+      t.x,
+      t.y,
+      turretW,
+      turretH
+    )) {
+      return {
+        type: "turret",
+        index: i,
+        x: t.x,
+        y: t.y,
+      };
     }
   }
-  // Switches: render as green sentinel rectangles (for bullet detection)
-  if (switchSprites) {
-    const switchW = switchSprites.left.width;
-    const switchH = switchSprites.left.height;
-    for (const sw of level.switches) {
-      const sx = Math.round(toScreenX(sw.x));
-      const sy = Math.round(wy(sw.y) - camY);
-      ctx.fillStyle = bbcMicroColours.green;
-      ctx.fillRect(sx, sy - 1, switchW, switchH);
+
+  // Switches
+  const switchW = switchSprites.left.width / WORLD_SCALE_X;
+  const switchH = switchSprites.left.height / WORLD_SCALE_Y;
+
+  for (let i = 0; i < level.switches.length; i++) {
+    const sw = level.switches[i];
+
+    if (rectsOverlap(
+      worldX, worldY, dx, dy,
+      sw.x,
+      sw.y,
+      switchW,
+      switchH
+    )) {
+      return {
+        type: "switch",
+        index: i,
+        x: sw.x,
+        y: sw.y,
+      };
     }
   }
-}
 
-/** Test a single screen pixel against the collision buffer image data. */
-function testPixelCollision(data: Uint8ClampedArray, width: number, height: number, px: number, py: number): boolean {
-  px+=EXTRA_BORDER_BUFFER;
-  py+=EXTRA_BORDER_BUFFER;
-  if (px < 0 || px >= width || py < 0 || py >= height) return false;
-  const idx = (py * width + px) * 4;
-  return data[idx] + data[idx + 1] + data[idx + 2] > 0;
-}
+  return null;
+}  
 
-/** Test a Bresenham line for collision. Returns true if any pixel hits terrain/objects. */
-export function testLineCollision(
-  imageData: ImageData,
-  x0: number, y0: number,
-  x1: number, y1: number,
+export function checkTerrainCollision(
+  level: Level,
+  doorPolygon: RasterPolygon | null,
+  worldX: number,
+  worldY: number,
+  dx: number,
+  dy: number,
 ): boolean {
-  const { data, width, height } = imageData;
-  let cx = x0, cy = y0;
-  const dx = Math.abs(x1 - x0);
-  const dy = Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1;
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx - dy;
-  while (true) {
-    if (testPixelCollision(data, width, height, cx, cy)) return true;
-    if (cx === x1 && cy === y1) break;
-    const e2 = 2 * err;
-    if (e2 > -dy) { err -= dy; cx += sx; }
-    if (e2 < dx) { err += dx; cy += sy; }
+
+  const worldWidth = WORLD_WIDTH / WORLD_SCALE_X;
+  const baseOffset = Math.round(worldX / worldWidth) * worldWidth;
+  const xCandidates = [worldX-baseOffset-worldWidth, worldX-baseOffset, worldX-baseOffset + worldWidth];
+  for (const x of xCandidates) {
+    if (checkPolygonCollision(level.landscapeLeftRasterisedPolygon, x, worldY, dx, dy)) {
+      return true;
+    }
+    if (checkPolygonCollision(level.landscapeRightRasterisedPolygon, x, worldY, dx, dy)) {
+      return true;
+    }
+    if (doorPolygon &&checkPolygonCollision(doorPolygon,x,worldY,dx,dy)) {
+      return true;
+    }
   }
   return false;
 }
 
-/** Test a rectangular area for collision. Returns true if any pixel hits terrain/objects. */
-export function testRectCollision(
-  imageData: ImageData,
-  sx: number, sy: number,
-  w: number, h: number,
-): boolean {
-  const { data, width, height } = imageData;
-  for (let dy = 0; dy < h; dy++) {
-    for (let dx = 0; dx < w; dx++) {
-      if (testPixelCollision(data, width, height, sx + dx, sy + dy)) return true;
-    }
-  }
-  return false;
-}
-
-/*export function testCollision(
-  buf: CollisionBuffer,
-  mask: SpriteMask,
-  shipScreenX: number,
-  shipScreenY: number,
-): CollisionResult {
-  const { ctx, width, height } = buf;
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;*/
 export function testCollision(
-  imageData: ImageData,
-  mask: SpriteMask,
-  shipScreenX: number,
-  shipScreenY: number,
+  level: Level,
+  doorPolygon: RasterPolygon | null,
+  mask: WorldSpriteMask,
+  shipWorldX: number,
+  shipWorldY: number,
+  fuelSprite: ImageBitmap,
+  turretSprites: TurretSprites,
+  powerPlantSprite: ImageBitmap,
+  podStandSprite: ImageBitmap,
+  podSprite: ImageBitmap,
+  switchSprites: SwitchSprites,
+  destroyedTurrets: Set<number>,
+  destroyedFuel: Set<number>,
+  generatorDestroyed: boolean,
+  podDetachedFromStand: boolean,
+  podX: number,
+  podY: number,
 ): CollisionResult {
-  const { data, width, height } = imageData;  
 
   let result = CollisionResult.None;
 
   for (const { dx, dy } of mask) {
-    const px = shipScreenX + dx + EXTRA_BORDER_BUFFER;
-    const py = shipScreenY + dy + EXTRA_BORDER_BUFFER;
 
-    if (px < 0 || px >= width || py < 0 || py >= height) continue;
+    const worldX = shipWorldX + dx;
+    const worldY = shipWorldY + dy;
 
-    const idx = (py * width + px) * 4;
-    const r = data[idx];
-    const g = data[idx + 1];
-    const b = data[idx + 2];
-
-    if (r + g + b === 0) continue;
-
-    //// Green (0,255,0) = switch sentinel — ship passes through, no collision
-    //if (r === 0 && g === 255 && b === 0) continue;
-
-    // Identify what was hit — higher-priority results override lower
-    let hit: CollisionResult;
-    if (r === 0 && g === 0 && b === 255) {
-      hit = CollisionResult.Terrain;
-    } else if (r === 255 && g === 0 && b === 0) {
-      hit = CollisionResult.Turret;
-    } else if (r === 0 && g === 255 && b === 255) {
-      hit = CollisionResult.PowerPlant;
-    } else if (r === 255 && g === 255 && b === 255) {
-      hit = CollisionResult.Pod;
-    } else if (r === 255 && g === 0 && b === 255) {
-      hit = CollisionResult.Fuel;
-    } else if (r === 0 && g === 255 && b === 0) {
-      hit = CollisionResult.Switch;
-    } else {
-      hit = CollisionResult.Terrain; // unknown colour — treat as terrain
+    //
+    // Terrain is highest priority
+    //
+    if (checkTerrainCollision(level, doorPolygon, worldX, worldY, 1, 1)) {
+       return CollisionResult.Terrain;
     }
 
-    // Terrain is highest priority — return immediately
-    if (hit === CollisionResult.Terrain) return CollisionResult.Terrain;
-    if (hit === CollisionResult.Turret) return CollisionResult.Turret;
+    //
+    // Objects
+    //
+    const hit = checkForLevelItemCollision(level, worldX, worldY, 1, 1,
+      fuelSprite, turretSprites, powerPlantSprite, podStandSprite,
+      podSprite, switchSprites,
+      destroyedTurrets,  destroyedFuel, generatorDestroyed, podDetachedFromStand, 
+      podX, podY);
 
-    // For lower-priority hits, keep the highest seen so far
-    if (result === CollisionResult.None || hit < result) {
-      result = hit;
+    if (!hit) {
+      continue;
+    }
+
+    switch (hit.type) {
+
+      case "turret":
+        return CollisionResult.Turret;
+
+      case "generator":
+        if (result === CollisionResult.None) {
+          result = CollisionResult.PowerPlant;
+        }
+        break;
+
+      case "pod":
+        if (result === CollisionResult.None) {
+          result = CollisionResult.Pod;
+        }
+        break;
+
+      case "fuel":
+        if (result === CollisionResult.None) {
+          result = CollisionResult.Fuel;
+        }
+        break;
+
+      case "switch":
+        if (result === CollisionResult.None) {
+          result = CollisionResult.Switch;
+        }
+        break;
     }
   }
-
   return result;
 }

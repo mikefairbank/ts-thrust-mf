@@ -7,7 +7,7 @@ import podPng from "./sprites/pod.png";
 import shieldPng from "./sprites/shield.png";
 import {levels} from "./levels";
 import {createGame, tick, retryLevel, triggerMessage, advanceToNextLevel, missionComplete, addScore, startTeleport, MESSAGE_DURATION, destroyPlayerShip, destroyAttachedPod, getPlanetExplodeBgColor, SHIELD_GATE_MASK} from "./game";
-import {createCollisionBuffer, renderCollisionBuffer, testCollision, testLineCollision, testRectCollision, CollisionResult} from "./collision";
+import {testCollision, CollisionResult} from "./collision";
 import {renderBullets, removeBulletsHittingShip, removeCollidingBullets, renderPlayerBullets, processPlayerBulletCollisions} from "./bullets";
 import {renderExplosions, spawnExplosion, orColours} from "./explosions";
 import {renderFuelBeams} from "./fuelCollection";
@@ -54,7 +54,6 @@ window.addEventListener("resize", resize);
 resize();
 
 let game = createGame(levels[0]);
-const collisionBuf = createCollisionBuffer(INTERNAL_W, INTERNAL_H);
 
 const keys = new Set<string>();
 const charQueue: string[] = [];
@@ -129,7 +128,7 @@ async function startGame() {
   // Init WebGPU post-processing (non-blocking — gracefully degrades if unavailable)
   const ppReady = await postProcessor.init().catch(() => false);
 
-  const [{ sprites: shipSprites, masks: shipMasks, centers: shipCenters }, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, shieldSprite, podSprite, switchSprites] = await Promise.all([
+  const [{sprites: shipSprites,masks: shipMasks,centers: shipCenters,worldMasks: shipWorldMasks,worldCenters: shipWorldCenters}, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, shieldSprite, podSprite, switchSprites] = await Promise.all([
     loadShipSprites(),
     loadSprite(fuelPng),
     loadTurretSprites(),
@@ -717,18 +716,18 @@ async function startGame() {
     // Remove pod stand from collision buffer as soon as tractor beam starts (or pod attached)
     const podStandRemovedFromCollision = podDetached;// || game.tractorBeamStarted;
     const doorPolyCollision = getDoorPolygon(game.doorState, game.level.doorConfig, camX, camY);
-    renderCollisionBuffer(collisionBuf, game.level, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, podSprite, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, podStandRemovedFromCollision, switchSprites, doorPolyCollision, game.physics.state.podX,game.physics.state.podY);
-    const collisionImageData = collisionBuf.ctx.getImageData(0, 0, collisionBuf.width, collisionBuf.height);
 
     // Remove bullets that hit terrain/objects
-    removeCollidingBullets(game.turretFiring, collisionImageData, camX, camY);
+    removeCollidingBullets(game.turretFiring, game.level, doorPolyCollision);
 
     // Player bullet collision via collision buffer — detects terrain hits and object destruction
     const bulletHits = processPlayerBulletCollisions(
-      game.playerShooting, collisionImageData, camX, camY,
-      game.level.turrets, game.level.fuel,
-      game.destroyedTurrets, game.destroyedFuel,
-    );
+      game.playerShooting, game.level,
+      doorPolyCollision, game.destroyedTurrets, game.destroyedFuel,
+      game.generator.destroyed, podStandRemovedFromCollision,
+      game.physics.state.podX, game.physics.state.podY,
+      fuelSprite, turretSprites, powerPlantSprite, podStandSprite, podSprite, switchSprites);
+
     // Gun explosions: type 2 ($0F) = colour 1 = yellow
     for (const idx of bulletHits.hitTurrets) {
       game.destroyedTurrets.add(idx);
@@ -771,7 +770,7 @@ async function startGame() {
 
     // --- Collision detection — skip during death sequence ---
     if (!game.deathSequence) {
-      const collision = testCollision(collisionImageData, shipMasks[spriteIdx], shipScreenX, shipScreenY);
+      const collision = testCollision(game.level, doorPolyCollision, shipWorldMasks[spriteIdx], game.player.x - shipWorldCenters[spriteIdx].x,   game.player.y - shipWorldCenters[spriteIdx].y,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
       game.collisionResult = collision;
 
       // Ship collision → destroy ship (ship dies first)
@@ -786,40 +785,23 @@ async function startGame() {
         const shipCY = Math.round(game.player.y * WORLD_SCALE_Y - camY);
         const podCX = Math.round(game.physics.state.podX * WORLD_SCALE_X - camX);
         const podCY = Math.round(game.physics.state.podY * WORLD_SCALE_Y - camY);
-        const collisionPod = testCollision(collisionImageData, shipMasks[32], podCX-shipCenters[32].x, podCY-shipCenters[32].y);
+        const collisionPod = testCollision(game.level, doorPolyCollision, shipWorldMasks[32], game.physics.state.podX - shipWorldCenters[32].x,   game.physics.state.podY- shipWorldCenters[32].y,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
+
         if (collisionPod !== CollisionResult.None && collisionPod !== CollisionResult.Pod && !game.deathSequence) {
           destroyAttachedPod(game);
           sounds.playExplosion();
         }
-
-        /*// Test tether line
-        // removed this code because BBC-Micro game did not check the tethher line collisions.
-        if (testLineCollision(collisionImageData, shipCX, shipCY, podCX, podCY)) {
-          destroyAttachedPod(game);
-          sounds.playExplosion();
-        }
-        // Test pod sprite area
-        // removed this check, replaced it by sprite mask check above, with call to testCollision, which should be more accurate than rectangle overlap check.
-        else {
-          const podLeft = podCX - Math.floor(podSprite.width / 2);
-          const podTop = podCY - Math.floor(podSprite.height / 2);
-          if (testRectCollision(collisionImageData, podLeft, podTop, podSprite.width, podSprite.height)) {
-            destroyAttachedPod(game);
-            sounds.playExplosion();
-          }
-        }*/
       }
 
       // Bullet-ship collision — always remove bullets that hit, only kill player if shield is down
-      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipMasks[spriteIdx], shipScreenX, shipScreenY, camX, camY);
+      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipWorldMasks[spriteIdx], game.player.x-shipWorldCenters[spriteIdx].x, game.player.y-shipWorldCenters[spriteIdx].y);
+
       if (bulletHitShip && !game.shieldActive && !game.deathSequence) {
         destroyPlayerShip(game);
         sounds.playExplosion();
       } else if (collision === CollisionResult.None && game.physics.state.podAttached) {
         // check for enemy bullet hitting pod
-        const podCX = Math.round(game.physics.state.podX * WORLD_SCALE_X - camX);
-        const podCY = Math.round(game.physics.state.podY * WORLD_SCALE_Y - camY);
-        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, shipMasks[32], podCX-shipCenters[32].x, podCY-shipCenters[32].y, camX, camY);
+        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, shipWorldMasks[32], game.physics.state.podX-shipWorldCenters[32].x, game.physics.state.podY-shipWorldCenters[32].y);
         if (bulletHitPod && !game.deathSequence) {
           destroyAttachedPod(game);
           sounds.playExplosion();

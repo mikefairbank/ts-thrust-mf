@@ -2,7 +2,7 @@ import { ANGLE_X, ANGLE_Y } from "./physics";
 import { Level } from "./levels";
 import { WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX } from "./rendering";
 import { SpriteMask } from "./shipSprites";
-import { EXTRA_BORDER_BUFFER } from "./collision";
+import { checkTerrainCollision, checkForLevelItemCollision } from "./collision";
 
 export interface Bullet {
   x: number;
@@ -156,29 +156,11 @@ export function renderBullets(
 
 export function removeCollidingBullets(
   state: TurretFiringState,
-  imageData: ImageData,
-  camX: number,
-  camY: number,
+  level: Level,
+  doorPolygon: RasterPolygon | null,
 ): void {
-  const { data, width, height } = imageData;
-
   state.bullets = state.bullets.filter(bullet => {
-    const bx = Math.round(bullet.x * WORLD_SCALE_X - camX)+EXTRA_BORDER_BUFFER;
-    const by = Math.round(bullet.y * WORLD_SCALE_Y - camY)+EXTRA_BORDER_BUFFER;
-    for (let px = 0; px < 2; px++) {
-      for (let py = 0; py < 2; py++) {
-        const x = bx + px;
-        const y = by + py;
-        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-        const idx = (y * width + x) * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        // Terrain is blue (0,0,255) in the collision buffer
-        if (r === 0 && g === 0 && b === 255) return false;
-      }
-    }
-    return true;
+    return checkTerrainCollision(level, doorPolygon, bullet.x, bullet.y, 2, 2);
   });
 }
 
@@ -321,116 +303,142 @@ export interface BulletHitResult {
 
 export function processPlayerBulletCollisions(
   state: PlayerShootingState,
-  imageData: ImageData,
-  camX: number,
-  camY: number,
-  turrets: readonly { x: number; y: number }[],
-  fuel: readonly { x: number; y: number }[],
+  level: Level,
+  doorPolygon: RasterPolygon | null,
   destroyedTurrets: Set<number>,
   destroyedFuel: Set<number>,
+  generatorDestroyed: boolean,
+  podDetachedFromStand: boolean,
+  podX: number,
+  podY: number,
+  fuelSprite: ImageBitmap,
+  turretSprites: TurretSprites,
+  powerPlantSprite: ImageBitmap,
+  podStandSprite: ImageBitmap,
+  podSprite: ImageBitmap,
+  switchSprites: SwitchSprites,
 ): BulletHitResult {
-  const result: BulletHitResult = { hitTurrets: [], hitFuel: [], hitGenerator: false, generatorHitX: 0, generatorHitY: 0, hitSwitch: false, switchHitX: 0, switchHitY: 0 };
-  const { data, width, height } = imageData;
+
+  const result: BulletHitResult = {
+    hitTurrets: [],
+    hitFuel: [],
+    hitGenerator: false,
+    generatorHitX: 0,
+    generatorHitY: 0,
+    hitSwitch: false,
+    switchHitX: 0,
+    switchHitY: 0,
+    hitPod: false,
+  };
 
   for (const bullet of state.bullets) {
+
     if (!bullet.active) continue;
-    const bx = Math.round(bullet.x * WORLD_SCALE_X - camX)+EXTRA_BORDER_BUFFER;
-    const by = Math.round(bullet.y * WORLD_SCALE_Y - camY)+EXTRA_BORDER_BUFFER;
 
-    let hitColor: 'none' | 'terrain' | 'turret' | 'fuel' | 'generator' | 'switch' | 'pod' = 'none';
+    //
+    // Terrain first
+    //
+    let hitTerrain = checkTerrainCollision(level, doorPolygon, bullet.x, bullet.y, 2,2);
 
-    for (let px = 0; px < 2 && hitColor === 'none'; px++) {
-      for (let py = 0; py < 2 && hitColor === 'none'; py++) {
-        const x = bx + px;
-        const y = by + py;
-        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-        const idx = (y * width + x) * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-
-        if (r === 0 && g === 0 && b === 0) continue;
-        if (r === 0 && g === 255 && b === 0) { hitColor = 'switch'; }
-        else if (r === 255 && g === 0 && b === 0) { hitColor = 'turret'; }
-        else if (r === 255 && g === 0 && b === 255) { hitColor = 'fuel'; }
-        else if (r === 0 && g === 255 && b === 255) { hitColor = 'generator'; }
-        else if (r === 255 && g === 255 && b === 255) { hitColor = 'pod'; }
-        else { hitColor = 'terrain'; }
-      }
+    if (hitTerrain) {
+      bullet.active = false;
+      continue;
     }
 
-    if (hitColor === 'none') continue;
+    //
+    // Objects
+    //
+    const hit = checkForLevelItemCollision(
+      level,
+      bullet.x,
+      bullet.y,
+      2,      // bullet width
+      2,      // bullet height
+      fuelSprite,
+      turretSprites,
+      powerPlantSprite,
+      podStandSprite,
+      podSprite,
+      switchSprites,
+      destroyedTurrets,
+      destroyedFuel,
+      generatorDestroyed,
+      podDetachedFromStand,
+      podX,
+      podY,
+    );
+
+    if (!hit) continue;
+
     bullet.active = false;
 
-    if (hitColor === 'switch') {
-      result.hitSwitch = true;
-      result.switchHitX = bullet.x;
-      result.switchHitY = bullet.y;
-    } else if (hitColor === 'turret') {
-      // Find nearest non-destroyed turret
-      let bestIdx = -1;
-      let bestDist = Infinity;
-      for (let i = 0; i < turrets.length; i++) {
-        if (destroyedTurrets.has(i)) continue;
-        const dx = bullet.x - turrets[i].x;
-        const dy = bullet.y - turrets[i].y;
-        const dist = dx * dx + dy * dy;
-        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-      }
-      if (bestIdx >= 0) result.hitTurrets.push(bestIdx);
-    } else if (hitColor === 'fuel') {
-      // Find nearest non-destroyed fuel
-      let bestIdx = -1;
-      let bestDist = Infinity;
-      for (let i = 0; i < fuel.length; i++) {
-        if (destroyedFuel.has(i)) continue;
-        const dx = bullet.x - fuel[i].x;
-        const dy = bullet.y - fuel[i].y;
-        const dist = dx * dx + dy * dy;
-        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-      }
-      if (bestIdx >= 0) result.hitFuel.push(bestIdx);
-    } else if (hitColor === 'generator') {
-      result.hitGenerator = true;
-      result.generatorHitX = bullet.x;
-      result.generatorHitY = bullet.y;
-    } else if (hitColor === 'pod') {
-      result.hitPod = true;
+    switch (hit.type) {
+
+      case "turret":
+        result.hitTurrets.push(hit.index);
+        break;
+
+      case "fuel":
+        result.hitFuel.push(hit.index);
+        break;
+
+      case "generator":
+        result.hitGenerator = true;
+        result.generatorHitX = bullet.x;
+        result.generatorHitY = bullet.y;
+        break;
+
+      case "switch":
+        result.hitSwitch = true;
+        result.switchHitX = bullet.x;
+        result.switchHitY = bullet.y;
+        break;
+
+      case "pod":
+        result.hitPod = true;
+        break;
     }
   }
 
   return result;
 }
 
+
 export function removeBulletsHittingShip(
   bullets: Bullet[],
   shipMask: SpriteMask,
-  shipScreenX: number,
-  shipScreenY: number,
-  camX: number,
-  camY: number,
+  shipWorldX: number,
+  shipWorldY: number,
 ): boolean {
-  // Build Set of ship pixel positions for O(1) lookup
-  const shipPixels = new Set<string>();
-  for (const { dx, dy } of shipMask) {
-    shipPixels.add(`${shipScreenX + dx},${shipScreenY + dy}`);
-  }
 
   let hit = false;
 
   for (let i = bullets.length - 1; i >= 0; i--) {
+
     const bullet = bullets[i];
-    const bx = Math.round(bullet.x * WORLD_SCALE_X - camX);
-    const by = Math.round(bullet.y * WORLD_SCALE_Y - camY);
-    // Check all 4 pixels of the 2×2 bullet
     let collided = false;
-    for (let px = 0; px < 2 && !collided; px++) {
-      for (let py = 0; py < 2 && !collided; py++) {
-        if (shipPixels.has(`${bx + px},${by + py}`)) {
-          collided = true;
-        }
+
+    const bulletLeft = bullet.x;
+    const bulletRight = bullet.x + 1;
+    const bulletTop = bullet.y;
+    const bulletBottom = bullet.y + 1;
+
+    for (const pixel of shipMask) {
+
+      const pixelX = shipWorldX + pixel.dx;
+      const pixelY = shipWorldY + pixel.dy;
+
+      if (
+        pixelX >= bulletLeft &&
+        pixelX <= bulletRight &&
+        pixelY >= bulletTop &&
+        pixelY <= bulletBottom
+      ) {
+        collided = true;
+        break;
       }
     }
+
     if (collided) {
       bullets.splice(i, 1);
       hit = true;
