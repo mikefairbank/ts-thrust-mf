@@ -468,7 +468,7 @@ export class ThrustPhysics {
   // Derive ship/pod world positions from midpoint + tether
   // -----------------------------------------------------------------------
 
-  private derivePositions(): void {
+  public derivePositions(): void {
     const s = this.state;
 
     if (!s.podAttached) {

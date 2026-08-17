@@ -1,6 +1,6 @@
 import { Level, SwitchPosition } from "./levels";
-import { fillRasteredPolygon, Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH } from "./rendering";
-import { SpriteMask, TurretSprites, SwitchSprites } from "./shipSprites";
+import { fillRasteredPolygon, Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH, RasterPolygon} from "./rendering";
+import { SpriteMask, TurretSprites, SwitchSprites, LoadedSprite } from "./shipSprites";
 
 export enum CollisionResult {
   None       = 0,
@@ -55,12 +55,12 @@ export function checkForLevelItemCollision(
   worldY: number,
   dx: number,
   dy: number,
-  fuelSprite: ImageBitmap,
+  fuelSprite: LoadedSprite,
   turretSprites: TurretSprites,
-  powerPlantSprite: ImageBitmap,
-  podStandSprite: ImageBitmap,
-  podSprite: ImageBitmap,
-  switchSprites: ImageBitmap,
+  powerPlantSprite: LoadedSprite,
+  podStandSprite: LoadedSprite,
+  podSprite: LoadedSprite,
+  switchSprites: SwitchSprites,
   destroyedTurrets?: Set<number>,
   destroyedFuel?: Set<number>,
   generatorDestroyed?: boolean,
@@ -89,8 +89,8 @@ export function checkForLevelItemCollision(
     if (rectsOverlap(
       worldX, worldY, dx, dy,
       level.powerPlant.x, level.powerPlant.y,
-      powerPlantSprite.width / WORLD_SCALE_X,
-      powerPlantSprite.height / WORLD_SCALE_Y
+      powerPlantSprite.worldWidth,
+      powerPlantSprite.worldHeight
     )) {
       return {
         type: "generator",
@@ -106,8 +106,8 @@ export function checkForLevelItemCollision(
       worldX, worldY, dx, dy,
       level.podPedestal.x,
       level.podPedestal.y,
-      podStandSprite.width / WORLD_SCALE_X,
-      podStandSprite.height / WORLD_SCALE_Y
+      podStandSprite.worldWidth,
+      podStandSprite.worldHeight
     )) {
       return {
         type: "pod",
@@ -120,8 +120,8 @@ export function checkForLevelItemCollision(
       worldX, worldY, dx, dy,
       podX,
       podY,
-      podSprite.width / WORLD_SCALE_X,
-      podSprite.height / WORLD_SCALE_Y
+      podSprite.worldWidth,
+      podSprite.worldHeight
     )) {
       return {
         type: "pod",
@@ -141,8 +141,8 @@ export function checkForLevelItemCollision(
       worldX, worldY, dx, dy,
       f.x,
       f.y,
-      fuelSprite.width / WORLD_SCALE_X,
-      fuelSprite.height / WORLD_SCALE_Y
+      fuelSprite.worldWidth,
+      fuelSprite.worldHeight
     )) {
       return {
         type: "fuel",
@@ -154,8 +154,8 @@ export function checkForLevelItemCollision(
   }
 
   // Turrets
-  const turretW = turretSprites.upRight.width / WORLD_SCALE_X;
-  const turretH = turretSprites.upRight.height / WORLD_SCALE_Y;
+  const turretW = turretSprites.upRight.worldWidth;
+  const turretH = turretSprites.upRight.worldHeight;
 
   for (let i = 0; i < level.turrets.length; i++) {
     if (destroyedTurrets?.has(i)) continue;
@@ -179,8 +179,8 @@ export function checkForLevelItemCollision(
   }
 
   // Switches
-  const switchW = switchSprites.left.width / WORLD_SCALE_X;
-  const switchH = switchSprites.left.height / WORLD_SCALE_Y;
+  const switchW = switchSprites.left.worldWidth;
+  const switchH = switchSprites.left.worldHeight;
 
   for (let i = 0; i < level.switches.length; i++) {
     const sw = level.switches[i];
@@ -217,10 +217,10 @@ export function checkTerrainCollision(
   const baseOffset = Math.round(worldX / worldWidth) * worldWidth;
   const xCandidates = [worldX-baseOffset-worldWidth, worldX-baseOffset, worldX-baseOffset + worldWidth];
   for (const x of xCandidates) {
-    if (checkPolygonCollision(level.landscapeLeftRasterisedPolygon, x, worldY, dx, dy)) {
+    if (checkPolygonCollision(level.landscapeLeftRasterisedPolygon!, x, worldY, dx, dy)) {
       return true;
     }
-    if (checkPolygonCollision(level.landscapeRightRasterisedPolygon, x, worldY, dx, dy)) {
+    if (checkPolygonCollision(level.landscapeRightRasterisedPolygon!, x, worldY, dx, dy)) {
       return true;
     }
     if (doorPolygon &&checkPolygonCollision(doorPolygon,x,worldY,dx,dy)) {
@@ -233,14 +233,14 @@ export function checkTerrainCollision(
 export function testCollision(
   level: Level,
   doorPolygon: RasterPolygon | null,
-  mask: WorldSpriteMask,
+  mask: SpriteMask,
   shipWorldX: number,
   shipWorldY: number,
-  fuelSprite: ImageBitmap,
+  fuelSprite: LoadedSprite,
   turretSprites: TurretSprites,
-  powerPlantSprite: ImageBitmap,
-  podStandSprite: ImageBitmap,
-  podSprite: ImageBitmap,
+  powerPlantSprite: LoadedSprite,
+  podStandSprite: LoadedSprite,
+  podSprite: LoadedSprite,
   switchSprites: SwitchSprites,
   destroyedTurrets: Set<number>,
   destroyedFuel: Set<number>,

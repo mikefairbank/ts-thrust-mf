@@ -1,5 +1,5 @@
 import { DoorConfig } from "./levels";
-import { Point, rasteriseConvexPolygon } from "./rendering";
+import { Point, rasteriseConvexPolygon, RasterPolygon } from "./rendering";
 
 const DOOR_TIMER_INITIAL = 0xFF;
 

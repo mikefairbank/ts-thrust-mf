@@ -16,7 +16,7 @@ export interface Point {
 
 import { Level, TurretDirection, SwitchDirection } from "./levels";
 import { fontData, charIndex, CHAR_W, CHAR_H } from "./font";
-import { TurretSprites, SpriteCenter, SwitchSprites } from "./shipSprites";
+import { TurretSprites, LoadedSprite, SwitchSprites } from "./shipSprites";
 
 export type RasterRow = {
     leftX: number;
@@ -147,7 +147,7 @@ function parseHexColor(hex: string): [number, number, number] {
 
 function drawWhiteReplacedSprite(
   ctx: CanvasRenderingContext2D,
-  sprite: ImageBitmap,
+  sprite: LoadedSprite,
   x: number,
   y: number,
   color: string,
@@ -155,7 +155,7 @@ function drawWhiteReplacedSprite(
   tintCanvas.width = sprite.width;
   tintCanvas.height = sprite.height;
   tintCtx.clearRect(0, 0, sprite.width, sprite.height);
-  tintCtx.drawImage(sprite, 0, 0);
+  tintCtx.drawImage(sprite.bitmap, 0, 0);
   const imageData = tintCtx.getImageData(0, 0, sprite.width, sprite.height);
   const data = imageData.data;
   const [cr, cg, cb] = parseHexColor(color);
@@ -178,7 +178,7 @@ function drawWhiteReplacedSprite(
  */
 export function drawRemappedSprite(
   ctx: CanvasRenderingContext2D,
-  sprite: ImageBitmap,
+  sprite: LoadedSprite,
   x: number,
   y: number,
   colour3: string,
@@ -187,7 +187,7 @@ export function drawRemappedSprite(
   tintCanvas.width = sprite.width;
   tintCanvas.height = sprite.height;
   tintCtx.clearRect(0, 0, sprite.width, sprite.height);
-  tintCtx.drawImage(sprite, 0, 0);
+  tintCtx.drawImage(sprite.bitmap, 0, 0);
   const imageData = tintCtx.getImageData(0, 0, sprite.width, sprite.height);
   const data = imageData.data;
   const [c3r, c3g, c3b] = parseHexColor(colour3);
@@ -215,7 +215,7 @@ export function drawRemappedSprite(
 function getTurretSprite(
   direction: TurretDirection,
   sprites: TurretSprites,
-): ImageBitmap {
+): LoadedSprite {
   switch (direction) {
     case 'up_left': return sprites.upLeft;
     case 'up_right': return sprites.upRight;
@@ -237,22 +237,21 @@ export function renderLevel(
   playerX: number,
   playerY: number,
   playerRotation: number,
-  shipSprites: ImageBitmap[],
-  shipCenters: SpriteCenter[],
+  shipSprites: LoadedSprite[],
   camX: number,
   camY: number,
-  fuelSprite?: ImageBitmap,
+  fuelSprite?: LoadedSprite,
   turretSprites?: TurretSprites,
-  powerPlantSprite?: ImageBitmap,
-  podStandSprite?: ImageBitmap,
-  shieldSprite?: ImageBitmap,
+  powerPlantSprite?: LoadedSprite,
+  podStandSprite?: LoadedSprite,
+  shieldSprite?: LoadedSprite,
   destroyedTurrets?: Set<number>,
   destroyedFuel?: Set<number>,
   generatorDestroyed?: boolean,
   generatorVisible?: boolean,
   podDetached?: boolean,
   hideShip?: boolean,
-  doorPolygon?: Point[] | null,
+  doorPolygon?: RasterPolygon | null,
   switchSprites?: SwitchSprites,
 ) {
   camY=Math.round(camY/2)*2;// try to reduce shimmering when camera scrolls vertically. (Dont want alternate raster lines for landscape to flicker)
@@ -340,14 +339,14 @@ export function renderLevel(
   // Draw player ship — anchor on per-sprite center of mass to eliminate rotation jiggle
   const spriteIdx = rotationToSpriteIndex(playerRotation);
   const sprite = shipSprites[spriteIdx];
-  const center = shipCenters[spriteIdx];
+  //const center = shipCenters[spriteIdx];
   const screenX = Math.round(wx(playerX) - camX);
   const screenY = Math.round(wy(playerY) - camY);
-  const shipDrawX = Math.round(screenX - center.x);
-  const shipDrawY = Math.round(screenY - center.y);
+  const shipDrawX = Math.round(screenX - sprite.centerX);
+  const shipDrawY = Math.round(screenY - sprite.centerY);
 
   if (!hideShip) {
-    ctx.drawImage(sprite, shipDrawX, shipDrawY);
+    ctx.drawImage(sprite.bitmap, shipDrawX, shipDrawY);
 
     if (shieldSprite) {
       // Shield is centered on the canvas (same size as ship sprites)

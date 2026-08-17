@@ -274,6 +274,9 @@ export function createGame(
     escapedToOrbit: false,
     messageText: null,
     messageTextSecond: null,
+    podCollectedThisTick:false,
+    messageTextAbove:null,
+    messageTextBelow:null,
     messageTimer: 0,
     messageTimerSecond: 0,
     pendingAction: null,
@@ -690,7 +693,7 @@ export function retryLevel(state: GameState): void {
 /** Get the background colour for the planet explosion animation, or null if inactive. */
 export function getPlanetExplodeBgColor(state: GameState): string | null {
   if (state.planetExplodeAnim <= 0) return null;
-  return BBC_PHYSICAL_COLOURS[PLANET_EXPLODE_BG_TABLE[state.planetExplodeAnim]];
+  return BBC_PHYSICAL_COLOURS[PLANET_EXPLODE_BG_TABLE[state.planetExplodeAnim]]!;
 }
 
 /** Set message overlay and pending action. */
@@ -730,7 +733,7 @@ export function advanceToNextLevel(state: GameState): GameState {
     }
   }
 
-  const newState = createGame(levels[nextLevelNumber], nextLevelNumber, {
+  const newState = createGame(levels[nextLevelNumber]!, nextLevelNumber, {
     lives: state.lives,
     score: state.score,
     fuel: state.fuel,

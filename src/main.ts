@@ -1,5 +1,5 @@
 import {renderLevel, drawStatusBar, drawText, drawRemappedSprite, rotationToSpriteIndex, WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX} from "./rendering";
-import {loadShipSprites, loadSprite, loadTurretSprites, loadSwitchSprites} from "./shipSprites";
+import {loadShipSprites, loadSpriteWithMask, loadTurretSprites, loadSwitchSprites, LoadedSprite} from "./shipSprites";
 import fuelPng from "./sprites/fuel.png";
 import powerPlantPng from "./sprites/powerPlant.png";
 import podStandPng from "./sprites/pod_stand.png";
@@ -128,14 +128,14 @@ async function startGame() {
   // Init WebGPU post-processing (non-blocking — gracefully degrades if unavailable)
   const ppReady = await postProcessor.init().catch(() => false);
 
-  const [{sprites: shipSprites,masks: shipMasks,centers: shipCenters,worldMasks: shipWorldMasks,worldCenters: shipWorldCenters}, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, shieldSprite, podSprite, switchSprites] = await Promise.all([
+  const [shipSprites, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, shieldSprite, podSprite, switchSprites] = await Promise.all([
     loadShipSprites(),
-    loadSprite(fuelPng),
+    loadSpriteWithMask(fuelPng),
     loadTurretSprites(),
-    loadSprite(powerPlantPng),
-    loadSprite(podStandPng),
-    loadSprite(shieldPng),
-    loadSprite(podPng),
+    loadSpriteWithMask(powerPlantPng),
+    loadSpriteWithMask(podStandPng),
+    loadSpriteWithMask(shieldPng),
+    loadSpriteWithMask(podPng),
     loadSwitchSprites(),
   ]);
 
@@ -170,19 +170,19 @@ async function startGame() {
       renderStars(ctx, game.starField, camX, camY);
     }
 
-    const doorPoly = getDoorPolygon(game.doorState, game.level.doorConfig, camX, camY);
+    const doorPoly = getDoorPolygon(game.doorState, game.level.doorConfig);
     const shieldGate = (game.fuelTickCounter & SHIELD_GATE_MASK) !== 0;
 
-    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, shipCenters, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSprite : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
+    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSprite : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
 
     renderBullets(ctx, game.turretFiring.bullets, camX, camY, lineColor);
     renderPlayerBullets(ctx, game.playerShooting, camX, camY, lineColor);
     renderExplosions(ctx, game.explosions, camX, camY);
 
     const spriteIdx = rotationToSpriteIndex(game.player.rotation);
-    const center = shipCenters[spriteIdx];
-    const shipScreenX = Math.round(game.player.x * WORLD_SCALE_X - camX - center.x);
-    const shipScreenY = Math.round(game.player.y * WORLD_SCALE_Y - camY - center.y);
+    const shipSprite = shipSprites[spriteIdx];
+    const shipScreenX = Math.round(game.player.x * WORLD_SCALE_X - camX - shipSprite.centerX);
+    const shipScreenY = Math.round(game.player.y * WORLD_SCALE_Y - camY - shipSprite.centerY);
     renderFuelBeams(ctx, game.fuelCollection, shipScreenX, shipScreenY);
 
     // Tractor beam / attachment line + attached pod rendering (skip during teleport)
@@ -439,14 +439,6 @@ async function startGame() {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawStatusBar(ctx, INTERNAL_W, game.fuel, game.lives, game.score);
-      /*drawCenteredMessage("GAME OVER");
-
-      // Check for any key to restart
-      if (keys.size > 0) {
-        keys.clear();
-        resetTitleScreen(title);
-        game = createGame(levels[0], 0);
-      }*/
 
       postProcessFrame(time);
       requestAnimationFrame(frame);
@@ -650,9 +642,6 @@ async function startGame() {
       ? getDemoInput(demo)
       : gameInputFromKeys(keys);
 
-    // The original game plays no sound during demo mode
-    sounds.setMuted(demo.active);
-
     tick(game, dt, gameInput);
     sounds.setMuted(demo.active); // we don't want any sounds playing in demo mode
     sounds.tick();
@@ -715,7 +704,7 @@ async function startGame() {
     const podDetached = game.physics.state.podAttached;
     // Remove pod stand from collision buffer as soon as tractor beam starts (or pod attached)
     const podStandRemovedFromCollision = podDetached;// || game.tractorBeamStarted;
-    const doorPolyCollision = getDoorPolygon(game.doorState, game.level.doorConfig, camX, camY);
+    const doorPolyCollision = getDoorPolygon(game.doorState, game.level.doorConfig);
 
     // Remove bullets that hit terrain/objects
     removeCollidingBullets(game.turretFiring, game.level, doorPolyCollision);
@@ -764,13 +753,13 @@ async function startGame() {
 
 
     const spriteIdx = rotationToSpriteIndex(game.player.rotation);
-    const center = shipCenters[spriteIdx];
-    const shipScreenX = Math.round(game.player.x * WORLD_SCALE_X - camX - center.x);
-    const shipScreenY = Math.round(game.player.y * WORLD_SCALE_Y - camY - center.y);
+    const shipSprite = shipSprites[spriteIdx];
+    const shipScreenX = Math.round(game.player.x * WORLD_SCALE_X - camX - shipSprite.centerX);
+    const shipScreenY = Math.round(game.player.y * WORLD_SCALE_Y - camY - shipSprite.centerY);
 
     // --- Collision detection — skip during death sequence ---
     if (!game.deathSequence) {
-      const collision = testCollision(game.level, doorPolyCollision, shipWorldMasks[spriteIdx], game.player.x - shipWorldCenters[spriteIdx].x,   game.player.y - shipWorldCenters[spriteIdx].y,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
+      const collision = testCollision(game.level, doorPolyCollision, shipSprite.mask, game.player.x - shipSprite.worldCenterX,   game.player.y - shipSprite.worldCenterY,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
       game.collisionResult = collision;
 
       // Ship collision → destroy ship (ship dies first)
@@ -785,7 +774,7 @@ async function startGame() {
         const shipCY = Math.round(game.player.y * WORLD_SCALE_Y - camY);
         const podCX = Math.round(game.physics.state.podX * WORLD_SCALE_X - camX);
         const podCY = Math.round(game.physics.state.podY * WORLD_SCALE_Y - camY);
-        const collisionPod = testCollision(game.level, doorPolyCollision, shipWorldMasks[32], game.physics.state.podX - shipWorldCenters[32].x,   game.physics.state.podY- shipWorldCenters[32].y,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
+        const collisionPod = testCollision(game.level, doorPolyCollision, podSprite.mask, game.physics.state.podX - podSprite.worldCenterX,   game.physics.state.podY- podSprite.worldCenterY,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
 
         if (collisionPod !== CollisionResult.None && collisionPod !== CollisionResult.Pod && !game.deathSequence) {
           destroyAttachedPod(game);
@@ -794,14 +783,14 @@ async function startGame() {
       }
 
       // Bullet-ship collision — always remove bullets that hit, only kill player if shield is down
-      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipWorldMasks[spriteIdx], game.player.x-shipWorldCenters[spriteIdx].x, game.player.y-shipWorldCenters[spriteIdx].y);
+      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipSprite.mask, game.player.x-shipSprite.worldCenterX, game.player.y-shipSprite.worldCenterY);
 
       if (bulletHitShip && !game.shieldActive && !game.deathSequence) {
         destroyPlayerShip(game);
         sounds.playExplosion();
       } else if (collision === CollisionResult.None && game.physics.state.podAttached) {
         // check for enemy bullet hitting pod
-        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, shipWorldMasks[32], game.physics.state.podX-shipWorldCenters[32].x, game.physics.state.podY-shipWorldCenters[32].y);
+        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, podSprite.mask, game.physics.state.podX-podSprite.worldCenterX, game.physics.state.podY-podSprite.worldCenterY);
         if (bulletHitPod && !game.deathSequence) {
           destroyAttachedPod(game);
           sounds.playExplosion();

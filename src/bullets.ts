@@ -1,7 +1,7 @@
 import { ANGLE_X, ANGLE_Y } from "./physics";
 import { Level } from "./levels";
-import { WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX } from "./rendering";
-import { SpriteMask } from "./shipSprites";
+import { WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX, RasterPolygon } from "./rendering";
+import { SpriteMask, LoadedSprite, TurretSprites, SwitchSprites } from "./shipSprites";
 import { checkTerrainCollision, checkForLevelItemCollision } from "./collision";
 
 export interface Bullet {
@@ -159,9 +159,9 @@ export function removeCollidingBullets(
   level: Level,
   doorPolygon: RasterPolygon | null,
 ): void {
-  state.bullets = state.bullets.filter(bullet => {
-    return checkTerrainCollision(level, doorPolygon, bullet.x, bullet.y, 2, 2);
-  });
+    state.bullets = state.bullets.filter(bullet => {
+      return !checkTerrainCollision(level, doorPolygon, bullet.x, bullet.y, 2, 2);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -311,11 +311,11 @@ export function processPlayerBulletCollisions(
   podDetachedFromStand: boolean,
   podX: number,
   podY: number,
-  fuelSprite: ImageBitmap,
+  fuelSprite: LoadedSprite,
   turretSprites: TurretSprites,
-  powerPlantSprite: ImageBitmap,
-  podStandSprite: ImageBitmap,
-  podSprite: ImageBitmap,
+  powerPlantSprite: LoadedSprite,
+  podStandSprite: LoadedSprite,
+  podSprite: LoadedSprite,
   switchSprites: SwitchSprites,
 ): BulletHitResult {
 
