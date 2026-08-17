@@ -1,4 +1,4 @@
-import {bbcMicroColours} from "./rendering";
+import {bbcMicroColours, rasteriseConvexPolygon} from "./rendering";
 
 export type Polygon = Array<number>;
 export type ObjectPosition = { x: number, y: number}
@@ -36,6 +36,8 @@ export type Level = {
     fuel: ObjectPosition[];
     switches: SwitchPosition[];
     doorConfig: DoorConfig | null;
+    landscapeLeftRasterisedPolygon: RasterPolygon;
+    landscapeRightRasterisedPolygon: RasterPolygon;
 };
 
 export const levels: Level[] = [
@@ -311,3 +313,22 @@ export const levels: Level[] = [
         doorConfig: { type: 'chevron', worldY: 879, threshold: 18, scanlines: 15, closedX: 192, openX: 174, innerX: 174 },
     },
 ];
+
+function polygonToPoints(poly: Polygon): Point[] {
+    const points: Point[] = [];
+
+    for (let i = 0; i < poly.length; i += 2) {
+        points.push({
+            x: poly[i],
+            y: poly[i + 1],
+        });
+    }
+
+    return points;
+}
+
+for (const level of levels) {
+    level.landscapeLeftRasterisedPolygon = rasteriseConvexPolygon(polygonToPoints(level.polygons[0]));
+    level.landscapeRightRasterisedPolygon = rasteriseConvexPolygon(polygonToPoints(level.polygons[1]));
+}
+

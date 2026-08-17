@@ -1,5 +1,5 @@
 import { DoorConfig } from "./levels";
-import { Point, WORLD_SCALE_X, WORLD_SCALE_Y } from "./rendering";
+import { Point, rasteriseConvexPolygon } from "./rendering";
 
 const DOOR_TIMER_INITIAL = 0xFF;
 
@@ -28,24 +28,34 @@ export function tickDoor(state: DoorState, config: DoorConfig | null): void {
     }
 }
 
-export function getDoorPolygon(state: DoorState, config: DoorConfig | null, camX: number, camY: number): Point[] | null {
-    if (!config) return null;
-
-    switch (config.type) {
-        case 'slide': return getSlidePolygon(state.counterB, config, camX, camY);
-        case 'step': return getStepPolygon(state.counterB, config, camX, camY);
-        case 'chevron': return getChevronPolygon(state.counterB, config, camX, camY);
-    }
+export function getDoorPolygon(state: DoorState,config: DoorConfig | null): RasterPolygon | null {
+  if (!config) return null;
+  let points: Point[] | null;
+  switch (config.type) {
+    case 'slide':
+      points = getSlidePolygon(state.counterB, config);
+      break;
+    case 'step':
+      points = getStepPolygon(state.counterB, config);
+      break;
+    case 'chevron':
+      points = getChevronPolygon(state.counterB, config);
+      break;
+  }
+  if (!points) {
+    return null;
+  }
+  return rasteriseConvexPolygon(points);
 }
 
-function getSlidePolygon(counterB: number, config: DoorConfig, camX: number, camY: number): Point[] | null {
+function getSlidePolygon(counterB: number, config: DoorConfig): Point[] | null {
     const doorX = config.closedX - counterB;
     if (doorX <= config.innerX) return null;
 
-    const left = config.innerX * WORLD_SCALE_X - camX;
-    const right = doorX * WORLD_SCALE_X - camX;
-    const top = config.worldY * WORLD_SCALE_Y - camY;
-    const bottom = (config.worldY + config.scanlines) * WORLD_SCALE_Y - camY;
+    const left = config.innerX;
+    const right = doorX;
+    const top = config.worldY;
+    const bottom = (config.worldY + config.scanlines);
 
     return [
         { x: left, y: top },
@@ -55,17 +65,17 @@ function getSlidePolygon(counterB: number, config: DoorConfig, camX: number, cam
     ];
 }
 
-function getStepPolygon(counterB: number, config: DoorConfig, camX: number, camY: number): Point[] | null {
+function getStepPolygon(counterB: number, config: DoorConfig): Point[] | null {
     if (counterB >= config.threshold) return null;
 
     // Top counterB scanlines are open (at innerX), bottom (scanlines-counterB) are closed
     const closedStartY = config.worldY + counterB;
     const closedEndY = config.worldY + config.scanlines;
 
-    const left = config.innerX * WORLD_SCALE_X - camX;
-    const right = config.closedX * WORLD_SCALE_X - camX;
-    const top = closedStartY * WORLD_SCALE_Y - camY;
-    const bottom = closedEndY * WORLD_SCALE_Y - camY;
+    const left = config.innerX;
+    const right = config.closedX;
+    const top = closedStartY;
+    const bottom = closedEndY;
 
     return [
         { x: left, y: top },
@@ -75,34 +85,34 @@ function getStepPolygon(counterB: number, config: DoorConfig, camX: number, camY
     ];
 }
 
-function getChevronPolygon(counterB: number, config: DoorConfig, camX: number, camY: number): Point[] | null {
+function getChevronPolygon(counterB: number, config: DoorConfig): Point[] | null {
     const baseX = config.closedX - counterB;
     // If peak of chevron (baseX + 6) is at or behind inner wall, no visible door
     if (baseX + 6 <= config.innerX) return null;
 
-    const innerSX = config.innerX * WORLD_SCALE_X - camX;
+    const innerSX = config.innerX;
     const points: Point[] = [];
 
     // Top-left corner
-    points.push({ x: innerSX, y: config.worldY * WORLD_SCALE_Y - camY });
+    points.push({ x: innerSX, y: config.worldY });
 
     // Right side: chevron outline from top to bottom
     // First 7 scanlines: X increments by 1 per row
     let x = baseX;
     for (let i = 0; i < 7; i++) {
         const effectiveX = Math.max(x, config.innerX);
-        points.push({ x: effectiveX * WORLD_SCALE_X - camX, y: (config.worldY + i) * WORLD_SCALE_Y - camY });
+        points.push({ x: effectiveX, y: (config.worldY + i)});
         x++;
     }
     // Next 8 scanlines: X decrements by 1 per row
     for (let i = 0; i < 8; i++) {
         const effectiveX = Math.max(x, config.innerX);
-        points.push({ x: effectiveX * WORLD_SCALE_X - camX, y: (config.worldY + 7 + i) * WORLD_SCALE_Y - camY });
+        points.push({ x: effectiveX, y: (config.worldY + 7 + i)});
         x--;
     }
 
     // Bottom-left corner
-    points.push({ x: innerSX, y: (config.worldY + config.scanlines) * WORLD_SCALE_Y - camY });
+    points.push({ x: innerSX, y: (config.worldY + config.scanlines)});
 
     return points;
 }

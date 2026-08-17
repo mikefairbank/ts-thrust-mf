@@ -18,52 +18,97 @@ import { Level, TurretDirection, SwitchDirection } from "./levels";
 import { fontData, charIndex, CHAR_W, CHAR_H } from "./font";
 import { TurretSprites, SpriteCenter, SwitchSprites } from "./shipSprites";
 
-export function fillPolygon(
-  ctx: CanvasRenderingContext2D,
-  points: Point[],
-  color: string,
-  parityOffset: number = 0
-) {
-  if (points.length < 3) return;
+export type RasterRow = {
+    leftX: number;
+    rightX: number;
+};
 
-  // Find vertical bounds
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (const p of points) {
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
+export type RasterPolygon = {
+    topY: number;
+    bottomY: number;
+    leftX: number;
+    rightX: number;
+    rows: RasterRow[];
+};
+
+export function rasteriseConvexPolygon(
+    points: Point[],
+): RasterPolygon {
+
+  if (points.length < 3) {
+    return {topY: 0, bottomY: -1, leftX: 0, rightX: -1, rows: []};
   }
 
-  const startY = Math.ceil(minY);
-  const endY = Math.floor(maxY);
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let minX = Infinity;
+  let maxX = -Infinity;
 
+  for (const p of points) {
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+  }
+  const topY = Math.ceil(minY);
+  const bottomY = Math.floor(maxY);
+  const rows: RasterRow[] = [];
+  for (let y = topY; y <= bottomY; y += 1) {
+      const intersections: number[] = [];
+      for (let i = 0; i < points.length; i++) {
+          const a = points[i];
+          const b = points[(i + 1) % points.length];
+          if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
+              const t = (y - a.y) / (b.y - a.y);
+              intersections.push(a.x + t * (b.x - a.x));
+          }
+      }
+      intersections.sort((a, b) => a - b);
+      if (intersections.length >= 2) {
+          rows.push({leftX: Math.ceil(intersections[0]),
+              rightX: Math.floor(intersections[intersections.length - 1])});
+      } else {
+          rows.push({leftX: 0, rightX: -1});
+      }
+  }
+  return {topY,bottomY,leftX: Math.floor(minX),rightX: Math.ceil(maxX),rows};
+}
+
+export function fillRasteredPolygon(
+  ctx: CanvasRenderingContext2D,
+  poly: RasterPolygon,
+  color: string,
+  camX: number,
+  camY: number,
+  borderX: number = 0,
+  borderY: number = 0,
+) {
   ctx.fillStyle = color;
-
-  for (let y = startY; y <= endY; y++) {
-    // Skip every other line (locked to world coordinates via parityOffset)
-    if ((y + parityOffset) % 2 !== 0) continue;
-
-    // Find edge intersections at this scanline
-    const intersections: number[] = [];
-    for (let i = 0; i < points.length; i++) {
-      const a = points[i];
-      const b = points[(i + 1) % points.length];
-
-      if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
-        const t = (y - a.y) / (b.y - a.y);
-        intersections.push(a.x + t * (b.x - a.x));
-      }
+  // Whole-polygon screen-space bounding box reject
+  const screenTop = Math.round(poly.topY * WORLD_SCALE_Y - camY + borderY);
+  const screenBottom = Math.round(poly.bottomY * WORLD_SCALE_Y - camY + borderY);
+  if (screenBottom < 0 || screenTop >= ctx.canvas.height) {
+    return;
+  }
+  const screenLeft = Math.round(poly.leftX * WORLD_SCALE_X - camX + borderX);
+  const screenRight = Math.round(poly.rightX * WORLD_SCALE_X - camX + borderX);
+  if (screenRight < 0 || screenLeft >= ctx.canvas.width) {
+    return;
+  }
+  for (let i = 0; i < poly.rows.length; i++) {
+    const worldY = poly.topY + i;
+    const screenY = Math.round(worldY * WORLD_SCALE_Y - camY + borderY);
+    if (screenY < 0) {
+      continue;
     }
-
-    intersections.sort((a, b) => a - b);
-
-    // Fill between pairs of intersections
-    for (let i = 0; i < intersections.length - 1; i += 2) {
-      const x1 = Math.ceil(intersections[i]);
-      const x2 = Math.floor(intersections[i + 1]);
-      if (x2 >= x1) {
-        ctx.fillRect(x1, y, x2 - x1 + 1, 1);
-      }
+    if (screenY >= ctx.canvas.height) {
+      break;
+    }
+    const row = poly.rows[i];
+    const leftX = Math.round(row.leftX * WORLD_SCALE_X - camX + borderX);
+    const rightX = Math.round(row.rightX * WORLD_SCALE_X - camX + borderX);
+    if (rightX >= leftX) {
+      ctx.fillRect(leftX, screenY, rightX - leftX + 1, 1);
     }
   }
 }
@@ -222,20 +267,14 @@ export function renderLevel(
   const baseOffset = Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
   const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
   for (const offset of offsets) {
-    for (const poly of level.polygons) {
-      const points: Point[] = [];
-      for (let i = 0; i < poly.length; i += 2) {
-        points.push({ x: wx(poly[i]) - camX + offset, y: wy(poly[i + 1]) - camY });
-      }
-      fillPolygon(ctx, points, level.terrainColor, Math.round(camY));
-    }
+    fillRasteredPolygon(ctx,level.landscapeLeftRasterisedPolygon,level.terrainColor,camX - offset,camY);
+    fillRasteredPolygon(ctx,level.landscapeRightRasterisedPolygon,level.terrainColor,camX - offset,camY);
   }
-
+  
   // Draw door polygon (terrain-colored overlay) at wrapping offsets
   if (doorPolygon) {
     for (const offset of offsets) {
-      const offsetPoints = doorPolygon.map(p => ({ x: p.x + offset, y: p.y }));
-      fillPolygon(ctx, offsetPoints, level.terrainColor, Math.round(camY));
+      fillRasteredPolygon(ctx, doorPolygon, level.terrainColor,camX - offset,camY);
     }
   }
 

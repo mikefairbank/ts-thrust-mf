@@ -1,5 +1,5 @@
 import { Level, SwitchPosition } from "./levels";
-import { fillPolygon, Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH } from "./rendering";
+import { fillRasteredPolygon, Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH } from "./rendering";
 import { SpriteMask, TurretSprites, SwitchSprites } from "./shipSprites";
 
 export const EXTRA_BORDER_BUFFER = 200; // This makes the collision canvas 
@@ -51,7 +51,7 @@ export function renderCollisionBuffer(
   generatorDestroyed?: boolean,
   podDetachedFromStand?: boolean,
   switchSprites?: SwitchSprites,
-  doorPolygon?: Point[] | null,
+  doorPolygon?: RasterPolygon | null,
   podX: number, podY: number,
 ): void {
   const { ctx, width, height } = buf;
@@ -65,20 +65,14 @@ export function renderCollisionBuffer(
   const baseOffset = Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
   const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
   for (const offset of offsets) {
-    for (const poly of level.polygons) {
-      const points: Point[] = [];
-      for (let i = 0; i < poly.length; i += 2) {
-        points.push({ x: wx(poly[i]) - camX + offset, y: wy(poly[i + 1]) - camY });
-      }
-      fillPolygon(ctx, points, TERRAIN_COLLISION_COLOUR, Math.round(camY));
-    }
+    fillRasteredPolygon(ctx,level.landscapeLeftRasterisedPolygon, TERRAIN_COLLISION_COLOUR,camX - offset,camY, EXTRA_BORDER_BUFFER, EXTRA_BORDER_BUFFER);
+    fillRasteredPolygon(ctx,level.landscapeRightRasterisedPolygon, TERRAIN_COLLISION_COLOUR,camX - offset,camY, EXTRA_BORDER_BUFFER, EXTRA_BORDER_BUFFER);
   }
 
   // Door polygon (terrain collision) at wrapping offsets
   if (doorPolygon) {
     for (const offset of offsets) {
-      const offsetPoints = doorPolygon.map(p => ({ x: p.x + offset+ EXTRA_BORDER_BUFFER, y: p.y+ EXTRA_BORDER_BUFFER }));
-      fillPolygon(ctx, offsetPoints, TERRAIN_COLLISION_COLOUR, Math.round(camY));
+      fillRasteredPolygon(ctx, doorPolygon, TERRAIN_COLLISION_COLOUR, camX - offset,camY, EXTRA_BORDER_BUFFER, EXTRA_BORDER_BUFFER);
     }
   }
 
