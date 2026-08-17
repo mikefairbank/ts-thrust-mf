@@ -1,13 +1,15 @@
 export type RasterMaskRow = {
-  leftX: number;
-  rightX: number;
+  leftX: number;   // world coords
+  rightX: number;  // world coords
 };
 
 export type RasterMask = {
-  topY: number;
+  topY: number;      // world coords
   bottomY: number;
   leftX: number;
   rightX: number;
+
+  // row 0 corresponds to topY
   rows: RasterMaskRow[];
 };
 
@@ -85,7 +87,7 @@ import { WORLD_SCALE_X, WORLD_SCALE_Y } from "./rendering";
 function buildRasterMask(
   data: Uint8ClampedArray,
   width: number,
-  height: number
+  height: number,
 ): RasterMask {
 
   const rows: RasterMaskRow[] = [];
@@ -97,40 +99,43 @@ function buildRasterMask(
 
   for (let y = 0; y < height; y++) {
 
-    let left = Infinity;
-    let right = -Infinity;
+    let rowLeft = Infinity;
+    let rowRight = -Infinity;
 
     for (let x = 0; x < width; x++) {
 
       const idx = (y * width + x) * 4;
 
-      if (data[idx + 3] > 0) {
-        left = Math.min(left, x);
-        right = Math.max(right, x);
+      if (data[idx + 3] === 0) continue;
 
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-      }
+      rowLeft = Math.min(rowLeft, x);
+      rowRight = Math.max(rowRight, x);
+
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
     }
 
     rows.push({
-      leftX: left === Infinity ? 0 : left / WORLD_SCALE_X,
-      rightX: right === -Infinity ? -1 : right / WORLD_SCALE_X,
+      leftX: rowLeft === Infinity ? Number.POSITIVE_INFINITY : rowLeft / WORLD_SCALE_X,
+      rightX: rowRight === -Infinity ? Number.NEGATIVE_INFINITY : rowRight / WORLD_SCALE_X,
     });
   }
 
   return {
-    topY: Math.floor(minY / WORLD_SCALE_Y),
-    bottomY: Math.ceil(maxY / WORLD_SCALE_Y),
-    leftX: Math.floor(minX / WORLD_SCALE_X),
-    rightX: Math.ceil(maxX / WORLD_SCALE_X),
+    topY: minY / WORLD_SCALE_Y,
+    bottomY: maxY / WORLD_SCALE_Y,
+    leftX: minX / WORLD_SCALE_X,
+    rightX: maxX / WORLD_SCALE_X,
     rows,
   };
 }
 
-export async function loadSpriteWithMask(url: string, forceYellow = false): Promise<LoadedSprite> {
+export async function loadSpriteWithMask(
+  url: string,
+  forceYellow = false,
+): Promise<LoadedSprite> {
 
   const img = new Image();
   img.src = url;
@@ -143,7 +148,13 @@ export async function loadSpriteWithMask(url: string, forceYellow = false): Prom
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0);
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+
   const data = imageData.data;
 
   let sumX = 0;
@@ -151,18 +162,8 @@ export async function loadSpriteWithMask(url: string, forceYellow = false): Prom
   let count = 0;
 
   const mask: SpriteMask = [];
-  const rows: RasterMaskRow[] = [];
-
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
 
   for (let y = 0; y < canvas.height; y++) {
-
-    let rowLeft = Infinity;
-    let rowRight = -Infinity;
-
     for (let x = 0; x < canvas.width; x++) {
 
       const idx = (y * canvas.width + x) * 4;
@@ -186,31 +187,28 @@ export async function loadSpriteWithMask(url: string, forceYellow = false): Prom
         sumY += y;
         count++;
 
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-
-        rowLeft = Math.min(rowLeft, x);
-        rowRight = Math.max(rowRight, x);
-
         mask.push({
           dx: x / WORLD_SCALE_X,
           dy: y / WORLD_SCALE_Y,
         });
       }
     }
-
-    rows.push({
-      leftX: rowLeft === Infinity ? 0 : rowLeft / WORLD_SCALE_X,
-      rightX: rowRight === -Infinity ? -1 : rowRight / WORLD_SCALE_X,
-    });
   }
+
+  const rasterMask = buildRasterMask(
+    data,
+    canvas.width,
+    canvas.height,
+  );
+
   const centerX =
     count > 0 ? sumX / count : canvas.width / 2;
+
   const centerY =
     count > 0 ? sumY / count : canvas.height / 2;
+
   ctx.putImageData(imageData, 0, 0);
+
   const bitmap = await createImageBitmap(canvas);
 
   return {
@@ -219,8 +217,8 @@ export async function loadSpriteWithMask(url: string, forceYellow = false): Prom
     width: canvas.width,
     height: canvas.height,
 
-    worldWidth: canvas.width/WORLD_SCALE_X,
-    worldHeight: canvas.height/WORLD_SCALE_Y,
+    worldWidth: canvas.width / WORLD_SCALE_X,
+    worldHeight: canvas.height / WORLD_SCALE_Y,
 
     centerX,
     centerY,
@@ -228,22 +226,18 @@ export async function loadSpriteWithMask(url: string, forceYellow = false): Prom
     worldCenterX: centerX / WORLD_SCALE_X,
     worldCenterY: centerY / WORLD_SCALE_Y,
 
-    bboxLeft: Math.floor(minX / WORLD_SCALE_X),
-    bboxRight: Math.ceil(maxX / WORLD_SCALE_X),
-    bboxTop: Math.floor(minY / WORLD_SCALE_Y),
-    bboxBottom: Math.ceil(maxY / WORLD_SCALE_Y),
+    bboxLeft: rasterMask.leftX,
+    bboxRight: rasterMask.rightX,
+    bboxTop: rasterMask.topY,
+    bboxBottom: rasterMask.bottomY,
 
     mask,
 
-    maskLeftRightWorldValues: {
-      topY: Math.floor(minY / WORLD_SCALE_Y),
-      bottomY: Math.ceil(maxY / WORLD_SCALE_Y),
-      leftX: Math.floor(minX / WORLD_SCALE_X),
-      rightX: Math.ceil(maxX / WORLD_SCALE_X),
-      rows,
-    },
+    maskLeftRightWorldValues: rasterMask,
   };
 }
+
+
 
 export interface TurretSprites {
   upLeft: LoadedSprite;
