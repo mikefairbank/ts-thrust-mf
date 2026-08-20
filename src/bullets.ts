@@ -1,8 +1,8 @@
 import { ANGLE_X, ANGLE_Y } from "./physics";
 import { Level } from "./levels";
 import { WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX, RasterPolygon } from "./rendering";
-import { SpriteMask, LoadedSprite, TurretSprites, SwitchSprites } from "./shipSprites";
-import { checkTerrainCollision, checkForLevelItemCollision } from "./collision";
+import { LoadedSprite, TurretSprites, SwitchSprites } from "./shipSprites";
+import { checkBulletWithTerrainCollision, checkForBulletLevelItemCollision, checkBulletHittingSprite} from "./collision";
 
 export interface Bullet {
   x: number;
@@ -160,7 +160,7 @@ export function removeCollidingBullets(
   doorPolygon: RasterPolygon | null,
 ): void {
     state.bullets = state.bullets.filter(bullet => {
-      return !checkTerrainCollision(level, doorPolygon, bullet.x, bullet.y, 2, 2);
+      return !checkBulletWithTerrainCollision(level, doorPolygon, bullet.x, bullet.y);
     });
 }
 
@@ -338,7 +338,7 @@ export function processPlayerBulletCollisions(
     //
     // Terrain first
     //
-    let hitTerrain = checkTerrainCollision(level, doorPolygon, bullet.x, bullet.y, 2,2);
+    let hitTerrain = checkBulletWithTerrainCollision(level, doorPolygon, bullet.x, bullet.y);
 
     if (hitTerrain) {
       bullet.active = false;
@@ -348,12 +348,10 @@ export function processPlayerBulletCollisions(
     //
     // Objects
     //
-    const hit = checkForLevelItemCollision(
+    const hit = checkForBulletLevelItemCollision(
       level,
       bullet.x,
       bullet.y,
-      2,      // bullet width
-      2,      // bullet height
       fuelSprite,
       turretSprites,
       powerPlantSprite,
@@ -403,47 +401,15 @@ export function processPlayerBulletCollisions(
   return result;
 }
 
-
 export function removeBulletsHittingShip(
-  bullets: Bullet[],
-  shipMask: SpriteMask,
-  shipWorldX: number,
-  shipWorldY: number,
-): boolean {
-
+  bullets: Bullet[],shipSprite: LoadedSprite, shipWorldX: number, shipWorldY: number): boolean {
   let hit = false;
-
   for (let i = bullets.length - 1; i >= 0; i--) {
-
     const bullet = bullets[i];
-    let collided = false;
-
-    const bulletLeft = bullet.x;
-    const bulletRight = bullet.x + 1;
-    const bulletTop = bullet.y;
-    const bulletBottom = bullet.y + 1;
-
-    for (const pixel of shipMask) {
-
-      const pixelX = shipWorldX + pixel.dx;
-      const pixelY = shipWorldY + pixel.dy;
-
-      if (
-        pixelX >= bulletLeft &&
-        pixelX <= bulletRight &&
-        pixelY >= bulletTop &&
-        pixelY <= bulletBottom
-      ) {
-        collided = true;
-        break;
-      }
-    }
-
-    if (collided) {
+    if (checkBulletHittingSprite(bullet.x, bullet.y, shipSprite, shipWorldX, shipWorldY)) {
       bullets.splice(i, 1);
       hit = true;
     }
   }
-
   return hit;
 }

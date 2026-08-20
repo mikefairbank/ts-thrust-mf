@@ -113,6 +113,46 @@ export function fillRasteredPolygon(
   }
 }
 
+export function fillRasteredPolygonPixelCoords(
+  ctx: CanvasRenderingContext2D,
+  poly: RasterPolygon,
+  color: string,
+  camX: number,
+  camY: number,
+  borderX: number = 0,
+  borderY: number = 0,
+) {
+  ctx.fillStyle = color;
+  // Whole-polygon screen-space bounding box reject
+  const screenTop = Math.round(poly.topY- camY + borderY);
+  const screenBottom = Math.round(poly.bottomY - camY + borderY);
+  if (screenBottom < 0 || screenTop >= ctx.canvas.height) {
+    return;
+  }
+  const screenLeft = Math.round(poly.leftX - camX + borderX);
+  const screenRight = Math.round(poly.rightX - camX + borderX);
+  if (screenRight < 0 || screenLeft >= ctx.canvas.width) {
+    return;
+  }
+  for (let i = 0; i < poly.rows.length; i++) {
+    const worldY = poly.topY + i;
+    const screenY = Math.round(worldY - camY + borderY);
+    if (screenY < 0) {
+      continue;
+    }
+    if (screenY >= ctx.canvas.height) {
+      break;
+    }
+    const row = poly.rows[i];
+    const leftX = Math.round(row.leftX - camX + borderX);
+    const rightX = Math.round(row.rightX - camX + borderX);
+    if (rightX >= leftX) {
+      ctx.fillRect(leftX, screenY, rightX - leftX + 1, 1);
+    }
+  }
+}
+
+
 // Terrain X values are byte-column indices from the BBC Micro (1 unit = 2 MODE 2 pixels).
 // Our 320px canvas is 2x MODE 2 resolution, so each terrain unit = 4 canvas pixels.
 export const WORLD_SCALE_X = 4;
@@ -231,6 +271,12 @@ export function toScreenX(worldX: number, camX: number): number {
     return sx;
 }
 
+export const GENERATOR_Y_OFFSET = -2;
+export const FUEL_Y_OFFSET = -2;
+export const POD_Y_OFFSET = -1;
+export const TURRET_Y_OFFSET = -1;
+export const SWITCH_Y_OFFSET = -1;
+
 export function renderLevel(
   ctx: CanvasRenderingContext2D,
   level: Level,
@@ -266,8 +312,10 @@ export function renderLevel(
   const baseOffset = Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
   const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
   for (const offset of offsets) {
-    fillRasteredPolygon(ctx,level.landscapeLeftRasterisedPolygon,level.terrainColor,camX - offset,camY);
-    fillRasteredPolygon(ctx,level.landscapeRightRasterisedPolygon,level.terrainColor,camX - offset,camY);
+    //fillRasteredPolygon(ctx,level.landscapeLeftRasterisedPolygon,level.terrainColor,camX - offset,camY);
+    //fillRasteredPolygon(ctx,level.landscapeRightRasterisedPolygon,level.terrainColor,camX - offset,camY);
+    fillRasteredPolygonPixelCoords(ctx,level.landscapeLeftRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);
+    fillRasteredPolygonPixelCoords(ctx,level.landscapeRightRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);
   }
   
   // Draw door polygon (terrain-colored overlay) at wrapping offsets
@@ -289,7 +337,7 @@ export function renderLevel(
     if (powerPlantSprite) {
       const sx = Math.round(toScreenX(level.powerPlant.x,camX));
       const sy = Math.round(wy(level.powerPlant.y) - camY);
-      drawRemappedSprite(ctx, powerPlantSprite, sx, sy - 2, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, powerPlantSprite, sx, sy + GENERATOR_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(level.powerPlant.x, level.powerPlant.y, bbcMicroColours.cyan);
     }
@@ -298,7 +346,7 @@ export function renderLevel(
     if (podStandSprite) {
       const sx = Math.round(toScreenX(level.podPedestal.x,camX));
       const sy = Math.round(wy(level.podPedestal.y) - camY);
-      drawRemappedSprite(ctx, podStandSprite, sx, sy - 1, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, podStandSprite, sx, sy + POD_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(level.podPedestal.x, level.podPedestal.y, bbcMicroColours.white);
     }
@@ -309,7 +357,7 @@ export function renderLevel(
     if (fuelSprite) {
       const sx = Math.round(toScreenX(f.x,camX));
       const sy = Math.round(wy(f.y) - camY);
-      drawRemappedSprite(ctx, fuelSprite, sx, sy - 2, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, fuelSprite, sx, sy + FUEL_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(f.x, f.y, bbcMicroColours.magenta);
     }
@@ -321,7 +369,7 @@ export function renderLevel(
       const sprite = getTurretSprite(t.direction, turretSprites);
       const sx = Math.round(toScreenX(t.x,camX));
       const sy = Math.round(wy(t.y) - camY);
-      drawRemappedSprite(ctx, sprite, sx, sy - 1, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, sprite, sx, sy + TURRET_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(t.x, t.y, bbcMicroColours.red);
     }
@@ -332,7 +380,7 @@ export function renderLevel(
       const sprite = sw.direction === 'left' ? switchSprites.left : switchSprites.right;
       const sx = Math.round(toScreenX(sw.x,camX));
       const sy = Math.round(wy(sw.y) - camY);
-      drawRemappedSprite(ctx, sprite, sx, sy - 1, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, sprite, sx, sy + SWITCH_Y_OFFSET, level.objectColor, level.terrainColor);
     }
   }
 

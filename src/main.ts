@@ -7,7 +7,7 @@ import podPng from "./sprites/pod.png";
 import shieldPng from "./sprites/shield.png";
 import {levels} from "./levels";
 import {createGame, tick, retryLevel, triggerMessage, advanceToNextLevel, missionComplete, addScore, startTeleport, MESSAGE_DURATION, destroyPlayerShip, destroyAttachedPod, getPlanetExplodeBgColor, SHIELD_GATE_MASK} from "./game";
-import {testCollision, CollisionResult} from "./collision";
+import {testCollision, CollisionResult, checkForLevelItemCollision, checkSpriteCollisionWithTerrain} from "./collision";
 import {renderBullets, removeBulletsHittingShip, removeCollidingBullets, renderPlayerBullets, processPlayerBulletCollisions} from "./bullets";
 import {renderExplosions, spawnExplosion, orColours} from "./explosions";
 import {renderFuelBeams} from "./fuelCollection";
@@ -36,6 +36,11 @@ const SCORE_FUEL_SHOT = 150;
 canvas.width = INTERNAL_W;
 canvas.height = INTERNAL_H;
 ctx.imageSmoothingEnabled = false;
+
+// Debug terrain collision probe debugCollisionDetection
+let debugMouseX = 0;
+let debugMouseY = 0;
+let debugMouseInside = false;
 
 function resize() {
   const scaleX = Math.floor(window.innerWidth / INTERNAL_W);
@@ -231,6 +236,18 @@ async function startGame() {
       const cy = Math.floor(INTERNAL_H / 2);
       drawText(ctx, countdownStr, cx, cy, bbcMicroColours.white);
     }
+    
+    // debugCollisionDetection
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      debugMouseX =(e.clientX - rect.left) * canvas.width / rect.width;
+      debugMouseY =(e.clientY - rect.top) * canvas.height / rect.height;
+      debugMouseInside = true;
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      debugMouseInside = false;
+    });
   }
 
   function drawCenteredMessage(text: string) {
@@ -759,7 +776,7 @@ async function startGame() {
 
     // --- Collision detection — skip during death sequence ---
     if (!game.deathSequence) {
-      const collision = testCollision(game.level, doorPolyCollision, shipSprite.mask, game.player.x - shipSprite.worldCenterX,   game.player.y - shipSprite.worldCenterY,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
+      const collision = testCollision(game.level, doorPolyCollision, shipSprite, game.player.x - shipSprite.worldCenterX,   game.player.y - shipSprite.worldCenterY,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
       game.collisionResult = collision;
 
       // Ship collision → destroy ship (ship dies first)
@@ -774,7 +791,7 @@ async function startGame() {
         const shipCY = Math.round(game.player.y * WORLD_SCALE_Y - camY);
         const podCX = Math.round(game.physics.state.podX * WORLD_SCALE_X - camX);
         const podCY = Math.round(game.physics.state.podY * WORLD_SCALE_Y - camY);
-        const collisionPod = testCollision(game.level, doorPolyCollision, podSprite.mask, game.physics.state.podX - podSprite.worldCenterX,   game.physics.state.podY- podSprite.worldCenterY,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
+        const collisionPod = testCollision(game.level, doorPolyCollision, podSprite, game.physics.state.podX - podSprite.worldCenterX,   game.physics.state.podY- podSprite.worldCenterY,  fuelSprite,  turretSprites,  powerPlantSprite,  podStandSprite,  podSprite,  switchSprites,    game.destroyedTurrets,  game.destroyedFuel,  game.generator.destroyed,  podStandRemovedFromCollision,  game.physics.state.podX,  game.physics.state.podY);
 
         if (collisionPod !== CollisionResult.None && collisionPod !== CollisionResult.Pod && !game.deathSequence) {
           destroyAttachedPod(game);
@@ -783,14 +800,14 @@ async function startGame() {
       }
 
       // Bullet-ship collision — always remove bullets that hit, only kill player if shield is down
-      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipSprite.mask, game.player.x-shipSprite.worldCenterX, game.player.y-shipSprite.worldCenterY);
+      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipSprite, game.player.x-shipSprite.worldCenterX, game.player.y-shipSprite.worldCenterY);
 
       if (bulletHitShip && !game.shieldActive && !game.deathSequence) {
         destroyPlayerShip(game);
         sounds.playExplosion();
       } else if (collision === CollisionResult.None && game.physics.state.podAttached) {
         // check for enemy bullet hitting pod
-        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, podSprite.mask, game.physics.state.podX-podSprite.worldCenterX, game.physics.state.podY-podSprite.worldCenterY);
+        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, podSprite, game.physics.state.podX-podSprite.worldCenterX, game.physics.state.podY-podSprite.worldCenterY);
         if (bulletHitPod && !game.deathSequence) {
           destroyAttachedPod(game);
           sounds.playExplosion();
@@ -877,6 +894,178 @@ async function startGame() {
       ctx.fillRect(0, INTERNAL_H - 7, fpsText.length * 8 + 2, 7);
       drawText(ctx, fpsText, 1, INTERNAL_H - 6, "#ffffff");
     }
+    
+    // debugCollisionDetection:
+    // ------------------------------------------------------------------
+    // TERRAIN COLLISION DEBUG PROBE
+    // ------------------------------------------------------------------
+
+    /*if (debugMouseInside && false) {
+
+      const worldX = (debugMouseX + camX) / WORLD_SCALE_X;
+      const worldY = (debugMouseY + camY) / WORLD_SCALE_Y;
+      const collisionDx=1/WORLD_SCALE_X;
+      const collisionDy=1/WORLD_SCALE_Y;
+
+      let text = "none";
+      let colour = "#00ff00";
+
+      // Terrain first  THIS WORKS
+      if (checkTerrainCollision( game.level,doorPolyCollision,worldX,worldY,1 / WORLD_SCALE_X,1 / WORLD_SCALE_Y)) {
+        text = "terrain";
+        colour = "#ff0000";
+      }
+
+      // Objects
+      const hit = checkForLevelItemCollision(
+        game.level,
+        worldX,
+        worldY,
+        collisionDx,
+        collisionDy,
+
+        fuelSprite,
+        turretSprites,
+        powerPlantSprite,
+        podStandSprite,
+        podSprite,
+        switchSprites,
+
+        game.destroyedTurrets,
+        game.destroyedFuel,
+        game.generator.destroyed,
+        podStandRemovedFromCollision,
+        game.physics.state.podX,
+        game.physics.state.podY,
+      );
+
+      if (hit) {
+        text =`${hit.type} `;
+        colour = "#ffff00";
+      }
+
+      // Crosshair
+      ctx.strokeStyle = colour;
+
+      ctx.strokeRect(
+        debugMouseX,
+        debugMouseY,
+        collisionDx * WORLD_SCALE_X ,
+        collisionDy * WORLD_SCALE_Y ,
+      );
+
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(
+        0,
+        0,
+        text.length * 8 + 4,
+        10
+      );
+
+      drawText(
+        ctx,
+        text,
+        2,
+        2,
+        colour,
+       );
+    } 
+    
+    if (debugMouseInside && false) {
+
+      const debugMouseX2 = debugMouseX + 20;
+
+      const worldX = (debugMouseX2 + camX) / WORLD_SCALE_X;
+      const worldY = (debugMouseY + camY) / WORLD_SCALE_Y;
+
+      const spriteIdx = rotationToSpriteIndex(game.player.rotation);
+      const shipSprite = shipSprites[spriteIdx];
+
+      const shipWorldX = worldX - shipSprite.centerX / WORLD_SCALE_X;
+      const shipWorldY = worldY - shipSprite.centerY / WORLD_SCALE_Y;
+
+      let text = "clear";
+      let colour = "#00ff00";
+
+      const terrainHit = checkSpriteCollisionWithTerrain(
+        game.level,
+        doorPolyCollision,
+        shipSprite.maskLeftRightPixelValues,
+        shipWorldX,
+        shipWorldY,
+      );
+
+      if (terrainHit) {
+        text = "terrain";
+        colour = "#ff0000";
+      }
+
+      const itemHit = checkForLevelItemCollision(
+        game.level,
+        shipSprite,
+        shipWorldX,
+        shipWorldY,
+        fuelSprite,
+        turretSprites,
+        powerPlantSprite,
+        podStandSprite,
+        podSprite,
+        switchSprites,
+        game.destroyedTurrets,
+        game.destroyedFuel,
+        game.generator.destroyed,
+        podStandRemovedFromCollision,
+        game.physics.state.podX,
+        game.physics.state.podY,
+      );
+
+      if (itemHit) {
+        text = itemHit.type;
+        colour = "#ffff00";
+      }
+
+      drawRemappedSprite(
+        ctx,
+        shipSprite,
+        Math.round(debugMouseX2 - shipSprite.centerX),
+        Math.round(debugMouseY - shipSprite.centerY),
+        game.level.objectColor,
+        game.level.terrainColor,
+      );
+
+      ctx.strokeStyle = "yellow";
+      ctx.strokeRect(
+        Math.round(debugMouseX2 - shipSprite.centerX + shipSprite.maskLeftRightPixelValues.leftX),
+        Math.round(debugMouseY - shipSprite.centerY + shipSprite.maskLeftRightPixelValues.topY),
+        shipSprite.maskLeftRightPixelValues.rightX - shipSprite.maskLeftRightPixelValues.leftX + 1,
+        shipSprite.maskLeftRightPixelValues.bottomY - shipSprite.maskLeftRightPixelValues.topY + 1,
+      );
+
+      ctx.strokeStyle = colour;
+      ctx.strokeRect(
+        Math.round(debugMouseX2 - shipSprite.centerX),
+        Math.round(debugMouseY - shipSprite.centerY),
+        shipSprite.width,
+        shipSprite.height,
+      );
+
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(
+        0,
+        0,
+        text.length * 8 + 4,
+        10,
+      );
+
+      drawText(
+        ctx,
+        text,
+        2,
+        2,
+        colour,
+      );
+    }
+    // end of debugCollisionDetection */
 
     postProcessFrame(time);
     requestAnimationFrame(frame);

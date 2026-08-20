@@ -1,43 +1,17 @@
-export type RasterMaskRow = {
-  leftX: number;   // world coords
-  rightX: number;  // world coords
-};
-
-export type RasterMask = {
-  topY: number;      // world coords
-  bottomY: number;
-  leftX: number;
-  rightX: number;
-
-  // row 0 corresponds to topY
-  rows: RasterMaskRow[];
-};
-
-export type SpriteMask = { dx: number; dy: number }[];
-
+//export type SpriteMask = { dx: number; dy: number }[];
 
 export interface LoadedSprite {
   bitmap: ImageBitmap;
 
-  width: number;
+  width: number;   // screen pixels
   height: number;
   
-  worldWidth: number;
-  worldHeight: number;
-
   centerX: number;        // screen pixels
   centerY: number;
-
-  worldCenterX: number;   // world coords
+  worldCenterX: number;   // world units
   worldCenterY: number;
 
-  bboxLeft: number;       // world coords relative to top-left
-  bboxRight: number;
-  bboxTop: number;
-  bboxBottom: number;
-
-  maskLeftRightWorldValues: RasterMask; // world coords of left-right array
-  mask: SpriteMask; // world coords, of every pixel
+  maskLeftRightPixelValues: RasterMask; // pixel coords of left-right array
 }
 
 import ship00 from './sprites/ship_00.png'
@@ -82,15 +56,23 @@ import switchLeftPng from './sprites/switch_left.png'
 import switchRightPng from './sprites/switch_right.png'
 
 
-import { WORLD_SCALE_X, WORLD_SCALE_Y } from "./rendering";
+import {RasterRow, RasterPolygon, WORLD_SCALE_X, WORLD_SCALE_Y } from "./rendering";
 
-function buildRasterMask(
+export interface RasterMask {
+  topY: number;
+  bottomY: number;
+  leftX: number;
+  rightX: number;
+  rows: RasterRow[];
+}
+
+export function buildRasterMask(
   data: Uint8ClampedArray,
   width: number,
   height: number,
 ): RasterMask {
 
-  const rows: RasterMaskRow[] = [];
+  const rows: RasterRow[] = [];
 
   let minX = Infinity;
   let maxX = -Infinity;
@@ -118,20 +100,23 @@ function buildRasterMask(
     }
 
     rows.push({
-      leftX: rowLeft === Infinity ? Number.POSITIVE_INFINITY : rowLeft / WORLD_SCALE_X,
-      rightX: rowRight === -Infinity ? Number.NEGATIVE_INFINITY : rowRight / WORLD_SCALE_X,
+      leftX: rowLeft === Infinity ? 1000 : rowLeft,
+      rightX: rowRight === -Infinity ? -1000 : rowRight,
     });
   }
 
+  if (minY === Infinity) {
+    throw new Error("sprite has no pixels");
+  }
+
   return {
-    topY: minY / WORLD_SCALE_Y,
-    bottomY: maxY / WORLD_SCALE_Y,
-    leftX: minX / WORLD_SCALE_X,
-    rightX: maxX / WORLD_SCALE_X,
+    topY: minY,
+    bottomY: maxY,
+    leftX: minX,
+    rightX: maxX,
     rows,
   };
 }
-
 export async function loadSpriteWithMask(
   url: string,
   forceYellow = false,
@@ -161,8 +146,7 @@ export async function loadSpriteWithMask(
   let sumY = 0;
   let count = 0;
 
-  const mask: SpriteMask = [];
-
+  // calculate centre of mass and transparency mask.
   for (let y = 0; y < canvas.height; y++) {
     for (let x = 0; x < canvas.width; x++) {
 
@@ -186,11 +170,6 @@ export async function loadSpriteWithMask(
         sumX += x;
         sumY += y;
         count++;
-
-        mask.push({
-          dx: x / WORLD_SCALE_X,
-          dy: y / WORLD_SCALE_Y,
-        });
       }
     }
   }
@@ -216,24 +195,11 @@ export async function loadSpriteWithMask(
 
     width: canvas.width,
     height: canvas.height,
-
-    worldWidth: canvas.width / WORLD_SCALE_X,
-    worldHeight: canvas.height / WORLD_SCALE_Y,
-
     centerX,
     centerY,
-
-    worldCenterX: centerX / WORLD_SCALE_X,
-    worldCenterY: centerY / WORLD_SCALE_Y,
-
-    bboxLeft: rasterMask.leftX,
-    bboxRight: rasterMask.rightX,
-    bboxTop: rasterMask.topY,
-    bboxBottom: rasterMask.bottomY,
-
-    mask,
-
-    maskLeftRightWorldValues: rasterMask,
+    worldCenterX: centerX/WORLD_SCALE_X,
+    worldCenterY: centerY/WORLD_SCALE_Y,
+    maskLeftRightPixelValues: rasterMask,
   };
 }
 
@@ -277,7 +243,7 @@ const spriteUrls: string[] = [
 ];
 
 
-export async function loadSpriteOld(url: string): Promise<ImageBitmap> {
+/*export async function loadSpriteOld(url: string): Promise<ImageBitmap> {
   const img = new Image();
   img.src = url;
   await img.decode();
@@ -302,22 +268,12 @@ export async function loadSpriteOld(url: string): Promise<ImageBitmap> {
 
   ctx.putImageData(imageData, 0, 0);
   return createImageBitmap(canvas);
-}
+}*/
 
 export interface SpriteCenter {
   x: number;
   y: number;
 }
-
-export type WorldMaskPixel = {
-  dx: number;
-  dy: number;
-};
-
-export type WorldCenter = {
-  x: number;
-  y: number;
-};
 
 export async function loadShipSprites(): Promise<LoadedSprite[]> {
   return Promise.all(
