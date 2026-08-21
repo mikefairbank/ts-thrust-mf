@@ -239,13 +239,15 @@ export function tickPlayerShooting(
   slot.dx = ANGLE_X[angleIdx];
   slot.dy = ANGLE_Y[angleIdx];
 
+
+  // Advance 2 steps to clear ship sprite (after full velocity is set)
+  slot.x += slot.dx * BULLET_INITIAL_ADVANCE-shipVX;
+  slot.y += slot.dy * BULLET_INITIAL_ADVANCE-shipVY;
+
+
   // Inherit ship velocity
   slot.dx += shipVX;
   slot.dy += shipVY;
-
-  // Advance 2 steps to clear ship sprite (after full velocity is set)
-  slot.x += slot.dx * BULLET_INITIAL_ADVANCE;
-  slot.y += slot.dy * BULLET_INITIAL_ADVANCE;
 
   slot.active = true;
   slot.lifetime = BULLET_LIFETIME;
