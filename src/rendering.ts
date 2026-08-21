@@ -17,6 +17,7 @@ export interface Point {
 import { Level, TurretDirection, SwitchDirection } from "./levels";
 import { fontData, charIndex, CHAR_W, CHAR_H } from "./font";
 import { TurretSprites, LoadedSprite, SwitchSprites } from "./shipSprites";
+import { rasterPolygonWorldToPixels } from "./collision";
 
 export type RasterRow = {
     leftX: number;
@@ -74,69 +75,29 @@ export function rasteriseConvexPolygon(
   return {topY,bottomY,leftX: Math.floor(minX),rightX: Math.ceil(maxX),rows};
 }
 
-export function fillRasteredPolygon(
-  ctx: CanvasRenderingContext2D,
-  poly: RasterPolygon,
-  color: string,
-  camX: number,
-  camY: number,
-  borderX: number = 0,
-  borderY: number = 0,
-) {
-  ctx.fillStyle = color;
-  // Whole-polygon screen-space bounding box reject
-  const screenTop = Math.round(poly.topY * WORLD_SCALE_Y - camY + borderY);
-  const screenBottom = Math.round(poly.bottomY * WORLD_SCALE_Y - camY + borderY);
-  if (screenBottom < 0 || screenTop >= ctx.canvas.height) {
-    return;
-  }
-  const screenLeft = Math.round(poly.leftX * WORLD_SCALE_X - camX + borderX);
-  const screenRight = Math.round(poly.rightX * WORLD_SCALE_X - camX + borderX);
-  if (screenRight < 0 || screenLeft >= ctx.canvas.width) {
-    return;
-  }
-  for (let i = 0; i < poly.rows.length; i++) {
-    const worldY = poly.topY + i;
-    const screenY = Math.round(worldY * WORLD_SCALE_Y - camY + borderY);
-    if (screenY < 0) {
-      continue;
-    }
-    if (screenY >= ctx.canvas.height) {
-      break;
-    }
-    const row = poly.rows[i];
-    const leftX = Math.round(row.leftX * WORLD_SCALE_X - camX + borderX);
-    const rightX = Math.round(row.rightX * WORLD_SCALE_X - camX + borderX);
-    if (rightX >= leftX) {
-      ctx.fillRect(leftX, screenY, rightX - leftX + 1, 1);
-    }
-  }
-}
 
 export function fillRasteredPolygonPixelCoords(
   ctx: CanvasRenderingContext2D,
   poly: RasterPolygon,
   color: string,
   camX: number,
-  camY: number,
-  borderX: number = 0,
-  borderY: number = 0,
+  camY: number
 ) {
   ctx.fillStyle = color;
   // Whole-polygon screen-space bounding box reject
-  const screenTop = Math.round(poly.topY- camY + borderY);
-  const screenBottom = Math.round(poly.bottomY - camY + borderY);
+  const screenTop = Math.round(poly.topY- camY);
+  const screenBottom = Math.round(poly.bottomY - camY);
   if (screenBottom < 0 || screenTop >= ctx.canvas.height) {
     return;
   }
-  const screenLeft = Math.round(poly.leftX - camX + borderX);
-  const screenRight = Math.round(poly.rightX - camX + borderX);
+  const screenLeft = Math.round(poly.leftX - camX);
+  const screenRight = Math.round(poly.rightX - camX);
   if (screenRight < 0 || screenLeft >= ctx.canvas.width) {
     return;
   }
   for (let i = 0; i < poly.rows.length; i++) {
     const worldY = poly.topY + i;
-    const screenY = Math.round(worldY - camY + borderY);
+    const screenY = Math.round(worldY - camY);
     if (screenY < 0) {
       continue;
     }
@@ -144,8 +105,8 @@ export function fillRasteredPolygonPixelCoords(
       break;
     }
     const row = poly.rows[i];
-    const leftX = Math.round(row.leftX - camX + borderX);
-    const rightX = Math.round(row.rightX - camX + borderX);
+    const leftX = Math.round(row.leftX - camX);
+    const rightX = Math.round(row.rightX - camX);
     if (rightX >= leftX) {
       ctx.fillRect(leftX, screenY, rightX - leftX + 1, 1);
     }
@@ -312,8 +273,6 @@ export function renderLevel(
   const baseOffset = Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
   const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
   for (const offset of offsets) {
-    //fillRasteredPolygon(ctx,level.landscapeLeftRasterisedPolygon,level.terrainColor,camX - offset,camY);
-    //fillRasteredPolygon(ctx,level.landscapeRightRasterisedPolygon,level.terrainColor,camX - offset,camY);
     fillRasteredPolygonPixelCoords(ctx,level.landscapeLeftRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);
     fillRasteredPolygonPixelCoords(ctx,level.landscapeRightRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);
   }
@@ -321,7 +280,7 @@ export function renderLevel(
   // Draw door polygon (terrain-colored overlay) at wrapping offsets
   if (doorPolygon) {
     for (const offset of offsets) {
-      fillRasteredPolygon(ctx, doorPolygon, level.terrainColor,camX - offset,camY);
+      fillRasteredPolygonPixelCoords(ctx, rasterPolygonWorldToPixels(doorPolygon), level.terrainColor,camX - offset,camY);
     }
   }
 

@@ -42,7 +42,7 @@ let debugMouseX = 0;
 let debugMouseY = 0;
 let debugMouseInside = false;
 
-function resize() {
+function resizeOld() {
   const scaleX = Math.floor(window.innerWidth / INTERNAL_W);
   const scaleY = Math.floor(window.innerHeight / INTERNAL_H);
   const scale = Math.max(1, Math.min(scaleX, scaleY));
@@ -53,6 +53,50 @@ function resize() {
   canvas.style.height = h;
   ppCanvas.style.width = w;
   ppCanvas.style.height = h;
+  
+  console.log("canvas dims", canvas.width, canvas.height, canvas.clientWidth, canvas.clientHeight, canvas.clientWidth / canvas.width, canvas.clientHeight / canvas.height,"dpr", window.devicePixelRatio);
+}
+
+function resize() {
+  const dpr = window.devicePixelRatio;
+  const physicalWidth = Math.floor(window.innerWidth * dpr);
+  const physicalHeight = Math.floor(window.innerHeight * dpr);
+  const scaleX = Math.floor(physicalWidth / INTERNAL_W);
+  const scaleY = Math.floor(physicalHeight / INTERNAL_H);
+  const scale = Math.max(1, Math.min(scaleX, scaleY));
+  const targetPhysicalW = INTERNAL_W * scale;
+  const targetPhysicalH = INTERNAL_H * scale;
+  const cssWidth = Math.round(targetPhysicalW / dpr);
+  const cssHeight = Math.round(targetPhysicalH / dpr);
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  ppCanvas.style.width = `${cssWidth}px`;
+  ppCanvas.style.height = `${cssHeight}px`;
+
+  console.log(
+    "canvas dims",
+    canvas.width,
+    canvas.height,
+    canvas.clientWidth,
+    canvas.clientHeight,
+    canvas.clientWidth / canvas.width,
+    canvas.clientHeight / canvas.height,
+    "dpr",
+    dpr,
+    "physical",
+    canvas.clientWidth * dpr,
+    canvas.clientHeight * dpr,
+    "scale",
+    scale,
+  );
+  console.log("dpr",window.devicePixelRatio,"scale",window.visualViewport?.scale);
+  console.log("csw",canvas.style.width,"csh",console.log(canvas.style.height));
+  console.log("styleW", canvas.style.width);
+  console.log("styleH", canvas.style.height);
+  console.log("clientW", canvas.clientWidth);
+  console.log("clientH", canvas.clientHeight);
+  console.log("computedW", getComputedStyle(canvas).width);
+  console.log("computedH", getComputedStyle(canvas).height);
 }
 
 window.addEventListener("resize", resize);

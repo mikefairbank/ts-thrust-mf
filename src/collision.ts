@@ -1,5 +1,6 @@
 import { Level, SwitchPosition } from "./levels";
-import { fillRasteredPolygon, Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH, RasterPolygon, RasterRow, GENERATOR_Y_OFFSET, FUEL_Y_OFFSET, POD_Y_OFFSET, TURRET_Y_OFFSET, SWITCH_Y_OFFSET} from "./rendering";
+import { Point, bbcMicroColours, WORLD_SCALE_X, WORLD_SCALE_Y, WORLD_WIDTH, 
+  RasterPolygon, RasterRow, GENERATOR_Y_OFFSET, FUEL_Y_OFFSET, POD_Y_OFFSET, TURRET_Y_OFFSET, SWITCH_Y_OFFSET} from "./rendering";
 import { TurretSprites, SwitchSprites, LoadedSprite, RasterMask } from "./shipSprites";
 
 
@@ -149,183 +150,6 @@ export function checkBulletHittingSprite(
   );
 }
 
-export function checkForBulletLevelItemCollisionOLD( // newer version.  Items are "sprites" now.  E.g. fuel has rounded edges.
-  level: Level,
-  worldX: number,
-  worldY: number,
-  dx: number,
-  dy: number,
-  fuelSprite: LoadedSprite,
-  turretSprites: TurretSprites,
-  powerPlantSprite: LoadedSprite,
-  podStandSprite: LoadedSprite,
-  podSprite: LoadedSprite,
-  switchSprites: SwitchSprites,
-  destroyedTurrets?: Set<number>,
-  destroyedFuel?: Set<number>,
-  generatorDestroyed?: boolean,
-  podDetachedFromStand?: boolean,
-  podX?: number,
-  podY?: number,
-): LevelItemCollision {
-
-  const worldWidth = WORLD_WIDTH / WORLD_SCALE_X;
-  worldX = ((worldX % worldWidth) + worldWidth) % worldWidth;
-
-  const spriteHit = (
-    sprite: LoadedSprite,
-    spriteX: number,
-    spriteY: number,
-  ): boolean => {
-
-    const result= checkPolygonCollision(
-      sprite.maskLeftRightPixelValues,
-      Math.round((worldX-spriteX)*WORLD_SCALE_X),
-      Math.round((worldY - spriteY)*WORLD_SCALE_Y),
-      Math.round(dx*WORLD_SCALE_X),
-      Math.round(dy*WORLD_SCALE_Y),
-    );
-    return result;
-  };
-
-  // Generator
-  if (!generatorDestroyed) {
-    if (
-      spriteHit(
-        powerPlantSprite,
-        level.powerPlant.x,
-        level.powerPlant.y,
-      )
-    ) {
-      return {
-        type: "generator",
-        x: level.powerPlant.x,
-        y: level.powerPlant.y,
-      };
-    }
-  }
-
-  // Pod stand / pod
-  if (!podDetachedFromStand) {
-
-    if (
-      spriteHit(
-        podStandSprite,
-        level.podPedestal.x,
-        level.podPedestal.y,
-      )
-    ) {
-      return {
-        type: "pod",
-        x: level.podPedestal.x,
-        y: level.podPedestal.y,
-      };
-    }
-
-  } else if (podX !== undefined && podY !== undefined) {
-
-    if (
-      spriteHit(
-        podSprite,
-        podX,
-        podY,
-      )
-    ) {
-      return {
-        type: "pod",
-        x: podX,
-        y: podY,
-      };
-    }
-  }
-
-  // Fuel
-  for (let i = 0; i < level.fuel.length; i++) {
-
-    if (destroyedFuel?.has(i)) {
-      continue;
-    }
-
-    const f = level.fuel[i];
-
-    if (
-      spriteHit(
-        fuelSprite,
-        f.x,
-        f.y,
-      )
-    ) {
-      return {
-        type: "fuel",
-        index: i,
-        x: f.x,
-        y: f.y
-      };
-    }
-  }
-
-  // Turrets
-  for (let i = 0; i < level.turrets.length; i++) {
-
-    if (destroyedTurrets?.has(i)) {
-      continue;
-    }
-
-    const t = level.turrets[i];
-
-    const turretSprite =
-      t.direction === "up_left" ? turretSprites.upLeft :
-      t.direction === "up_right" ? turretSprites.upRight :
-      t.direction === "down_left" ? turretSprites.downLeft :
-      turretSprites.downRight;
-
-    if (
-      spriteHit(
-        turretSprite,
-        t.x,
-        t.y,
-      )
-    ) {
-      return {
-        type: "turret",
-        index: i,
-        x: t.x,
-        y: t.y,
-      };
-    }
-  }
-
-  // Switches
-  for (let i = 0; i < level.switches.length; i++) {
-
-    const sw = level.switches[i];
-
-    const switchSprite =
-      sw.direction === "right"
-        ? switchSprites.right
-        : switchSprites.left;
-
-    if (
-      spriteHit(
-        switchSprite,
-        sw.x,
-        sw.y,
-      )
-    ) {
-      return {
-        type: "switch",
-        index: i,
-        x: sw.x,
-        y: sw.y,
-      };
-    }
-  }
-
-  return null;
-}
-
-
-
 export function checkForLevelItemCollision(
   level: Level,
   movingSprite: LoadedSprite,
@@ -379,8 +203,8 @@ export function checkForLevelItemCollision(
     if (masksOverlap(worldX, worldY, movingSprite, level.podPedestal.x, level.podPedestal.y+POD_Y_OFFSET/WORLD_SCALE_Y, podStandSprite)) {
       return {type: "pod", x: level.podPedestal.x, y: level.podPedestal.y};
     }
-  } else if (podX !== undefined && podY !== undefined) {
-    if (masksOverlap(worldX, worldY, movingSprite, podX, podY, podSprite)) {
+  } else if (podX !== undefined && podY !== undefined && movingSprite!==podSprite) {
+    if (masksOverlap(worldX, worldY, movingSprite, podX-podSprite.worldCenterX, podY-podSprite.worldCenterY, podSprite)) {
       return {type: "pod", x: podX, y: podY};
     }
   }
@@ -438,8 +262,8 @@ const BULLET_SPRITE: LoadedSprite = {
   centerX: 1,
   centerY: 1,
 
-  worldCenterX: 1 / WORLD_SCALE_X,
-  worldCenterY: 1 / WORLD_SCALE_Y,
+  worldCenterX: 0.5,
+  worldCenterY: 0.5,
 
   maskLeftRightPixelValues: BULLET_MASK
 };
