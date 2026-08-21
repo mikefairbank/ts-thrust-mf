@@ -160,7 +160,7 @@ export function removeCollidingBullets(
   doorPolygon: RasterPolygon | null,
 ): void {
     state.bullets = state.bullets.filter(bullet => {
-      return !checkBulletWithTerrainCollision(level, doorPolygon, bullet.x, bullet.y);
+      return !checkBulletWithTerrainCollision(level, doorPolygon, Math.floor(bullet.x*WORLD_SCALE_X), Math.floor(bullet.y*WORLD_SCALE_Y));
     });
 }
 
@@ -340,7 +340,7 @@ export function processPlayerBulletCollisions(
     //
     // Terrain first
     //
-    let hitTerrain = checkBulletWithTerrainCollision(level, doorPolygon, bullet.x, bullet.y);
+    let hitTerrain = checkBulletWithTerrainCollision(level, doorPolygon, Math.floor(bullet.x*WORLD_SCALE_X), Math.floor(bullet.y*WORLD_SCALE_Y));
 
     if (hitTerrain) {
       bullet.active = false;
@@ -352,8 +352,8 @@ export function processPlayerBulletCollisions(
     //
     const hit = checkForBulletLevelItemCollision(
       level,
-      bullet.x,
-      bullet.y,
+      Math.floor(bullet.x*WORLD_SCALE_X),
+      Math.floor(bullet.y*WORLD_SCALE_Y),
       fuelSprite,
       turretSprites,
       powerPlantSprite,
@@ -404,11 +404,11 @@ export function processPlayerBulletCollisions(
 }
 
 export function removeBulletsHittingShip(
-  bullets: Bullet[],shipSprite: LoadedSprite, shipWorldX: number, shipWorldY: number): boolean {
+  bullets: Bullet[],shipSprite: LoadedSprite, shipPixelX: number, shipPixelY: number): boolean {
   let hit = false;
   for (let i = bullets.length - 1; i >= 0; i--) {
     const bullet = bullets[i];
-    if (checkBulletHittingSprite(bullet.x, bullet.y, shipSprite, shipWorldX, shipWorldY)) {
+    if (checkBulletHittingSprite(Math.floor(bullet.x*WORLD_SCALE_X), Math.floor(bullet.y*WORLD_SCALE_Y), shipSprite, shipPixelX, shipPixelY)) {
       bullets.splice(i, 1);
       hit = true;
     }

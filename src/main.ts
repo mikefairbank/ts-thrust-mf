@@ -844,14 +844,14 @@ async function startGame() {
       }
 
       // Bullet-ship collision — always remove bullets that hit, only kill player if shield is down
-      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipSprite, game.player.x-shipSprite.worldCenterX, game.player.y-shipSprite.worldCenterY);
+      const bulletHitShip = removeBulletsHittingShip(game.turretFiring.bullets, shipSprite, Math.floor(game.player.x*WORLD_SCALE_X-shipSprite.centerX), Math.floor(game.player.y*WORLD_SCALE_Y-shipSprite.centerY));
 
       if (bulletHitShip && !game.shieldActive && !game.deathSequence) {
         destroyPlayerShip(game);
         sounds.playExplosion();
       } else if (collision === CollisionResult.None && game.physics.state.podAttached) {
         // check for enemy bullet hitting pod
-        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, podSprite, game.physics.state.podX-podSprite.worldCenterX, game.physics.state.podY-podSprite.worldCenterY);
+        const bulletHitPod = removeBulletsHittingShip(game.turretFiring.bullets, podSprite, Math.floor(game.physics.state.podX*WORLD_SCALE_X-podSprite.centerX), Math.floor(game.physics.state.podY*WORLD_SCALE_Y-podSprite.centerY));
         if (bulletHitPod && !game.deathSequence) {
           destroyAttachedPod(game);
           sounds.playExplosion();
@@ -943,90 +943,19 @@ async function startGame() {
     // ------------------------------------------------------------------
     // TERRAIN COLLISION DEBUG PROBE
     // ------------------------------------------------------------------
-
-    /*if (debugMouseInside && false) {
-
-      const worldX = (debugMouseX + camX) / WORLD_SCALE_X;
-      const worldY = (debugMouseY + camY) / WORLD_SCALE_Y;
-      const collisionDx=1/WORLD_SCALE_X;
-      const collisionDy=1/WORLD_SCALE_Y;
-
-      let text = "none";
-      let colour = "#00ff00";
-
-      // Terrain first  THIS WORKS
-      if (checkTerrainCollision( game.level,doorPolyCollision,worldX,worldY,1 / WORLD_SCALE_X,1 / WORLD_SCALE_Y)) {
-        text = "terrain";
-        colour = "#ff0000";
-      }
-
-      // Objects
-      const hit = checkForLevelItemCollision(
-        game.level,
-        worldX,
-        worldY,
-        collisionDx,
-        collisionDy,
-
-        fuelSprite,
-        turretSprites,
-        powerPlantSprite,
-        podStandSprite,
-        podSprite,
-        switchSprites,
-
-        game.destroyedTurrets,
-        game.destroyedFuel,
-        game.generator.destroyed,
-        podStandRemovedFromCollision,
-        game.physics.state.podX,
-        game.physics.state.podY,
-      );
-
-      if (hit) {
-        text =`${hit.type} `;
-        colour = "#ffff00";
-      }
-
-      // Crosshair
-      ctx.strokeStyle = colour;
-
-      ctx.strokeRect(
-        debugMouseX,
-        debugMouseY,
-        collisionDx * WORLD_SCALE_X ,
-        collisionDy * WORLD_SCALE_Y ,
-      );
-
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(
-        0,
-        0,
-        text.length * 8 + 4,
-        10
-      );
-
-      drawText(
-        ctx,
-        text,
-        2,
-        2,
-        colour,
-       );
-    } 
-    
     if (debugMouseInside && false) {
 
-      const debugMouseX2 = debugMouseX + 20;
+      const debugMouseX2 = Math.floor(debugMouseX + 20);
+      const debugMouseY2 = Math.floor(debugMouseY);
 
-      const worldX = (debugMouseX2 + camX) / WORLD_SCALE_X;
-      const worldY = (debugMouseY + camY) / WORLD_SCALE_Y;
+      const pixelX = (debugMouseX2 + camX);
+      const pixelY = (debugMouseY2 + camY);
 
       const spriteIdx = rotationToSpriteIndex(game.player.rotation);
       const shipSprite = shipSprites[spriteIdx];
 
-      const shipWorldX = worldX - shipSprite.centerX / WORLD_SCALE_X;
-      const shipWorldY = worldY - shipSprite.centerY / WORLD_SCALE_Y;
+      const shipPixelX_topLeft = pixelX - Math.round(shipSprite.centerX);
+      const shipPixelY_topLeft = pixelY - Math.round(shipSprite.centerY);
 
       let text = "clear";
       let colour = "#00ff00";
@@ -1035,8 +964,8 @@ async function startGame() {
         game.level,
         doorPolyCollision,
         shipSprite.maskLeftRightPixelValues,
-        shipWorldX,
-        shipWorldY,
+        shipPixelX_topLeft,
+        shipPixelY_topLeft,
       );
 
       if (terrainHit) {
@@ -1047,8 +976,8 @@ async function startGame() {
       const itemHit = checkForLevelItemCollision(
         game.level,
         shipSprite,
-        shipWorldX,
-        shipWorldY,
+        shipPixelX_topLeft,
+        shipPixelY_topLeft,
         fuelSprite,
         turretSprites,
         powerPlantSprite,
@@ -1067,30 +996,20 @@ async function startGame() {
         text = itemHit.type;
         colour = "#ffff00";
       }
+      
+      //const screenX = Math.floor((worldX)* WORLD_SCALE_X - camX);
+      //const screenY = Math.floor((worldY)* WORLD_SCALE_Y - camY);
+      const shipDrawX = shipPixelX_topLeft-camX;
+      const shipDrawY = shipPixelY_topLeft-camY;
 
       drawRemappedSprite(
         ctx,
         shipSprite,
-        Math.round(debugMouseX2 - shipSprite.centerX),
-        Math.round(debugMouseY - shipSprite.centerY),
-        game.level.objectColor,
-        game.level.terrainColor,
-      );
-
-      ctx.strokeStyle = "yellow";
-      ctx.strokeRect(
-        Math.round(debugMouseX2 - shipSprite.centerX + shipSprite.maskLeftRightPixelValues.leftX),
-        Math.round(debugMouseY - shipSprite.centerY + shipSprite.maskLeftRightPixelValues.topY),
-        shipSprite.maskLeftRightPixelValues.rightX - shipSprite.maskLeftRightPixelValues.leftX + 1,
-        shipSprite.maskLeftRightPixelValues.bottomY - shipSprite.maskLeftRightPixelValues.topY + 1,
-      );
-
-      ctx.strokeStyle = colour;
-      ctx.strokeRect(
-        Math.round(debugMouseX2 - shipSprite.centerX),
-        Math.round(debugMouseY - shipSprite.centerY),
-        shipSprite.width,
-        shipSprite.height,
+        //Math.round(debugMouseX2 - shipSprite.centerX),
+        //Math.round(debugMouseY2 - shipSprite.centerY),
+        shipDrawX,shipDrawY,
+        colour,
+        colour,
       );
 
       ctx.fillStyle = "#000000";
@@ -1109,7 +1028,7 @@ async function startGame() {
         colour,
       );
     }
-    // end of debugCollisionDetection */
+    // end of debugCollisionDetection 
 
     postProcessFrame(time);
     requestAnimationFrame(frame);

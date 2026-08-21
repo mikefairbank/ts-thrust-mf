@@ -54,8 +54,8 @@ export function checkPolygonCollision(
 export function checkRasterPolygonOverlap(
   poly1: RasterPolygon,
   poly2: RasterPolygon,
-  dx: number,
-  dy: number,
+  dx: number, // relative displacement of poly2 from poly1 (in pixels; must be integer)
+  dy: number, // relative displacement of poly2 from poly1 (in pixels; must be integer)
 ): boolean {
   if (!Number.isInteger(dx) || !Number.isInteger(dy) || !Number.isInteger(poly1.topY) || !Number.isInteger(poly1.bottomY) || !Number.isInteger(poly1.leftX) || !Number.isInteger(poly1.rightX) || !Number.isInteger(poly2.topY) || !Number.isInteger(poly2.bottomY) || !Number.isInteger(poly2.leftX) || !Number.isInteger(poly2.rightX)) throw new Error(`Non-integer raster polygon overlap argument dx=${dx} dy=${dy}`);
   if (!poly1.rows.every(r => Number.isInteger(r.leftX) && Number.isInteger(r.rightX))) throw new Error("Raster polygon 1 contains non-integer row coordinates");
@@ -65,7 +65,7 @@ export function checkRasterPolygonOverlap(
   }
   //if (poly1.rows.length !== poly1.bottomY - poly1.topY + 1) throw new Error("poly1 row count mismatch");
   //if (poly2.rows.length !== poly2.bottomY - poly2.topY + 1) throw new Error("poly2 row count mismatch");
-  const poly2Left   = poly2.leftX   + dx; //Uncaught TypeError: can't access property "leftX", poly2 is undefined
+  const poly2Left   = poly2.leftX   + dx; 
   const poly2Right  = poly2.rightX  + dx;
   const poly2Top    = poly2.topY    + dy;
   const poly2Bottom = poly2.bottomY + dy;
@@ -76,16 +76,21 @@ export function checkRasterPolygonOverlap(
   if (poly2Right < poly1.leftX || poly2Left > poly1.rightX) {
     return false;
   }
-  const startY = Math.max(poly1.topY,Math.floor(poly2Top));
-  const endY = Math.min(poly1.bottomY,Math.floor(poly2Bottom));
+  const startY = Math.max(poly1.topY, poly2Top);     // picks out lowest top Y
+  const endY = Math.min(poly1.bottomY, poly2Bottom); // picks out highest bottom Y
+  if (!Number.isInteger(startY) || !Number.isInteger(endY)) throw new Error(`Unexpected non-integer value.`);
   for (let y = startY; y <= endY; y++) {
-    const row1 = poly1.rows[y - poly1.topY];
-    const row2Index = Math.floor(y - poly2Top + poly2.topY);
+    const row1Index = y - poly1.topY; 
+    if (row1Index<0) throw new Error(`Unexpected negative row1 index.`);
+    if (row1Index>=poly1.rows.length) throw new Error(`Unexpected oob row1 index.`);
+    const row1 = poly1.rows[row1Index];
+    const row2Index = y - dy; 
+    if (!Number.isInteger(row2Index)) throw new Error(`Unexpected non-integer value.`);
     if (row2Index < 0 || row2Index >= poly2.rows.length) {
       continue;
     }
     const row2 = poly2.rows[row2Index];
-    if (row1.rightX < row1.leftX || row2.rightX < row2.leftX) {
+    if (row1.rightX < row1.leftX || row2.rightX < row2.leftX) { // simply checks both sprites have some pixels on this row.
       continue;
     }
     const row2Left = row2.leftX + dx;
@@ -107,8 +112,8 @@ export type LevelItemCollision =
 
 export function checkForBulletLevelItemCollision(
   level: Level,
-  worldX: number,
-  worldY: number,
+  bulletPixelX: number,
+  bulletPixelY: number,
   fuelSprite: LoadedSprite,
   turretSprites: TurretSprites,
   powerPlantSprite: LoadedSprite,
@@ -123,24 +128,24 @@ export function checkForBulletLevelItemCollision(
   podY?: number,
 ): LevelItemCollision {
 
-  return checkForLevelItemCollision(level, BULLET_SPRITE, worldX, worldY, fuelSprite, turretSprites, powerPlantSprite,
+  return checkForLevelItemCollision(level, BULLET_SPRITE, bulletPixelX, bulletPixelY, fuelSprite, turretSprites, powerPlantSprite,
     podStandSprite, podSprite, switchSprites, destroyedTurrets, destroyedFuel, generatorDestroyed, podDetachedFromStand, 
     podX, podY);
 }
 
 export function checkBulletHittingSprite(
-  bulletWorldX: number,
-  bulletWorldY: number,
+  bulletPixelX: number,
+  bulletPixelY: number,
   sprite: LoadedSprite,
-  spriteWorldX: number,
-  spriteWorldY: number,
+  spritePixelX: number,
+  spritePixelY: number,
 ): boolean {
 
-  const bulletLeft = Math.floor(bulletWorldX * WORLD_SCALE_X);
-  const bulletTop = Math.floor(bulletWorldY * WORLD_SCALE_Y);
+  const bulletLeft = bulletPixelX;
+  const bulletTop = bulletPixelY;
 
-  const spriteLeft = Math.floor(spriteWorldX * WORLD_SCALE_X);
-  const spriteTop = Math.floor(spriteWorldY * WORLD_SCALE_Y);
+  const spriteLeft = spritePixelX;
+  const spriteTop = spritePixelY;
 
   return checkRasterPolygonOverlap(
     BULLET_SPRITE.maskLeftRightPixelValues,
@@ -153,8 +158,8 @@ export function checkBulletHittingSprite(
 export function checkForLevelItemCollision(
   level: Level,
   movingSprite: LoadedSprite,
-  worldX: number,
-  worldY: number,
+  spritePixelX: number,
+  spritePixelY: number,
   fuelSprite: LoadedSprite,
   turretSprites: TurretSprites,
   powerPlantSprite: LoadedSprite,
@@ -169,8 +174,8 @@ export function checkForLevelItemCollision(
   podY?: number,
 ): LevelItemCollision {
 
-  const worldWidth = WORLD_WIDTH / WORLD_SCALE_X;
-  worldX = ((worldX % worldWidth) + worldWidth) % worldWidth;
+  const worldWidth = WORLD_WIDTH ;
+  spritePixelX = ((spritePixelX % worldWidth) + worldWidth) % worldWidth;
 
   const masksOverlap = (
     ax: number,
@@ -181,11 +186,11 @@ export function checkForLevelItemCollision(
     b: LoadedSprite,
   ): boolean => {
 
-    const aLeft = Math.floor(ax * WORLD_SCALE_X);
-    const aTop = Math.floor(ay * WORLD_SCALE_Y);
+    const aLeft = Math.floor(ax);
+    const aTop = Math.floor(ay);
 
-    const bLeft = Math.floor(bx * WORLD_SCALE_X);
-    const bTop = Math.floor(by * WORLD_SCALE_Y);
+    const bLeft = Math.floor(bx);
+    const bTop = Math.floor(by);
 
     return checkRasterPolygonOverlap(
       a.maskLeftRightPixelValues,
@@ -195,16 +200,16 @@ export function checkForLevelItemCollision(
     );
   };
 
-  if (!generatorDestroyed && masksOverlap(worldX, worldY, movingSprite, level.powerPlant.x, level.powerPlant.y+GENERATOR_Y_OFFSET/WORLD_SCALE_Y, powerPlantSprite)) {
+  if (!generatorDestroyed && masksOverlap(spritePixelX, spritePixelY, movingSprite, level.powerPlant.x*WORLD_SCALE_X, level.powerPlant.y*WORLD_SCALE_Y+GENERATOR_Y_OFFSET, powerPlantSprite)) {
     return {type: "generator", x: level.powerPlant.x, y: level.powerPlant.y};
   }
 
   if (!podDetachedFromStand) {
-    if (masksOverlap(worldX, worldY, movingSprite, level.podPedestal.x, level.podPedestal.y+POD_Y_OFFSET/WORLD_SCALE_Y, podStandSprite)) {
+    if (masksOverlap(spritePixelX, spritePixelY, movingSprite, level.podPedestal.x*WORLD_SCALE_X, level.podPedestal.y*WORLD_SCALE_Y+POD_Y_OFFSET, podStandSprite)) {
       return {type: "pod", x: level.podPedestal.x, y: level.podPedestal.y};
     }
   } else if (podX !== undefined && podY !== undefined && movingSprite!==podSprite) {
-    if (masksOverlap(worldX, worldY, movingSprite, podX-podSprite.worldCenterX, podY-podSprite.worldCenterY, podSprite)) {
+    if (masksOverlap(spritePixelX, spritePixelY, movingSprite, podX*WORLD_SCALE_X-podSprite.centerX, podY*WORLD_SCALE_Y-podSprite.centerY, podSprite)) {
       return {type: "pod", x: podX, y: podY};
     }
   }
@@ -212,7 +217,7 @@ export function checkForLevelItemCollision(
   for (let i = 0; i < level.fuel.length; i++) {
     if (destroyedFuel?.has(i)) continue;
     const f = level.fuel[i];
-    if (masksOverlap(worldX, worldY, movingSprite, f.x, f.y+FUEL_Y_OFFSET/WORLD_SCALE_Y, fuelSprite)) {
+    if (masksOverlap(spritePixelX, spritePixelY, movingSprite, f.x*WORLD_SCALE_X, f.y*WORLD_SCALE_Y+FUEL_Y_OFFSET, fuelSprite)) {
       return {type: "fuel", index: i, x: f.x, y: f.y};
     }
   }
@@ -225,7 +230,7 @@ export function checkForLevelItemCollision(
       t.direction === "up_right" ? turretSprites.upRight :
       t.direction === "down_left" ? turretSprites.downLeft :
       turretSprites.downRight;
-    if (masksOverlap(worldX, worldY, movingSprite, t.x, t.y+TURRET_Y_OFFSET/WORLD_SCALE_Y, turretSprite)) {
+    if (masksOverlap(spritePixelX, spritePixelY, movingSprite, t.x*WORLD_SCALE_X, t.y*WORLD_SCALE_Y+TURRET_Y_OFFSET, turretSprite)) {
       return {type: "turret", index: i, x: t.x, y: t.y};
     }
   }
@@ -233,7 +238,7 @@ export function checkForLevelItemCollision(
   for (let i = 0; i < level.switches.length; i++) {
     const sw = level.switches[i];
     const switchSprite = sw.direction === "right" ? switchSprites.right : switchSprites.left;
-    if (masksOverlap(worldX, worldY, movingSprite, sw.x, sw.y+SWITCH_Y_OFFSET/WORLD_SCALE_Y, switchSprite)) {
+    if (masksOverlap(worldX, worldY, movingSprite, sw.x*WORLD_SCALE_Y, sw.y*WORLD_SCALE_Y+SWITCH_Y_OFFSET, switchSprite)) {
       return {type: "switch", index: i, x: sw.x, y: sw.y};
     }
   }
@@ -269,38 +274,40 @@ const BULLET_SPRITE: LoadedSprite = {
 };
 
 export function checkBulletWithTerrainCollision(
-  level: Level, doorPolygon: RasterPolygon | null, worldX: number, worldY: number): boolean {
-  return checkSpriteCollisionWithTerrain(level, doorPolygon, BULLET_SPRITE.maskLeftRightPixelValues, worldX, worldY);
+  level: Level, doorPolygon: RasterPolygon | null, bulletPixelX: number, bulletPixelY: number): boolean {
+  return checkSpriteCollisionWithTerrain(level, doorPolygon, BULLET_SPRITE.maskLeftRightPixelValues, bulletPixelX, bulletPixelY);
 }
 
 export function checkSpriteCollisionWithTerrain(
   level: Level,
   doorPolygon: RasterPolygon | null,
   spritePolygon: RasterPolygon,
-  spriteWorldX: number, // top left not centre
-  spriteWorldY: number, // top left not centre
+  spritePixelX: number, // top left not centre
+  spritePixelY: number, // top left not centre
 ): boolean {
-  const worldWidth = WORLD_WIDTH / WORLD_SCALE_X;
-  const baseOffset = Math.round(spriteWorldX / worldWidth) * worldWidth;
+  const worldWidth = WORLD_WIDTH;
+  const baseOffset = Math.round(spritePixelX / worldWidth) * worldWidth;
+  if (!Number.isInteger(spritePixelX) || !Number.isInteger(spritePixelY)) throw new Error(`Non-integer sprite coords`);
   const xCandidates = [
-    spriteWorldX - baseOffset - worldWidth,
-    spriteWorldX - baseOffset,
-    spriteWorldX - baseOffset + worldWidth,
+    Math.floor(spritePixelX - baseOffset - worldWidth),
+    Math.floor(spritePixelX - baseOffset),
+    Math.floor(spritePixelX - baseOffset + worldWidth),
   ];
   for (const x of xCandidates) {
-    if (checkRasterPolygonOverlap(level.landscapeLeftRasterisedPolygonPixels!,spritePolygon,Math.floor(x*WORLD_SCALE_X),Math.floor(spriteWorldY*WORLD_SCALE_Y))) {
+    if (checkRasterPolygonOverlap(level.landscapeLeftRasterisedPolygonPixels!,spritePolygon, x, spritePixelY)) {
       return true;
     }
-    if (checkRasterPolygonOverlap(level.landscapeRightRasterisedPolygonPixels!,spritePolygon,Math.floor(x*WORLD_SCALE_X),Math.floor(spriteWorldY*WORLD_SCALE_Y))) {
+    if (checkRasterPolygonOverlap(level.landscapeRightRasterisedPolygonPixels!,spritePolygon, x, spritePixelY)) {
       return true;
     }
 
-    if (doorPolygon &&checkRasterPolygonOverlap(rasterPolygonWorldToPixels(doorPolygon),spritePolygon,Math.floor(x*WORLD_SCALE_X),Math.floor(spriteWorldY*WORLD_SCALE_Y))) {
+    if (doorPolygon &&checkRasterPolygonOverlap(rasterPolygonWorldToPixels(doorPolygon),spritePolygon, x, spritePixelY)) {
       return true;
     }
   }
   return false;
 }
+
 
 
 export function testCollision(
@@ -323,15 +330,15 @@ export function testCollision(
   podY: number,
 ): CollisionResult {
 
-  if (checkSpriteCollisionWithTerrain(level,doorPolygon,sprite.maskLeftRightPixelValues, shipWorldX, shipWorldY)) {
+  if (checkSpriteCollisionWithTerrain(level,doorPolygon,sprite.maskLeftRightPixelValues, Math.floor(shipWorldX*WORLD_SCALE_X), Math.floor(shipWorldY*WORLD_SCALE_Y))) {
     return CollisionResult.Terrain;
   }
 
   const hit = checkForLevelItemCollision(
     level,
     sprite,
-    shipWorldX,
-    shipWorldY,
+    Math.floor(shipWorldX*WORLD_SCALE_X),
+    Math.floor(shipWorldY*WORLD_SCALE_Y),
     fuelSprite,
     turretSprites,
     powerPlantSprite,

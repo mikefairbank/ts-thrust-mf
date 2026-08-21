@@ -185,6 +185,7 @@ export function drawRemappedSprite(
   colour3: string,
   colour2: string,
 ) {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) throw new Error(`Non-integer sprite coords`);
   tintCanvas.width = sprite.width;
   tintCanvas.height = sprite.height;
   tintCtx.clearRect(0, 0, sprite.width, sprite.height);
@@ -286,16 +287,16 @@ export function renderLevel(
 
   // Draw objects (with wrapping)
   const drawMarker = (ox: number, oy: number, colour: string) => {
-    const sx = Math.round(toScreenX(ox,camX));
-    const sy = Math.round(wy(oy) - camY);
+    const sx = Math.floor(toScreenX(ox,camX));
+    const sy = Math.floor(wy(oy) - camY);
     ctx.fillStyle = colour;
     ctx.fillRect(sx - 3, sy - 3, 7, 7);
   };
 
   if (!generatorDestroyed && (generatorVisible ?? true)) {
     if (powerPlantSprite) {
-      const sx = Math.round(toScreenX(level.powerPlant.x,camX));
-      const sy = Math.round(wy(level.powerPlant.y) - camY);
+      const sx = Math.floor(toScreenX(level.powerPlant.x,camX));
+      const sy = Math.floor(wy(level.powerPlant.y) - camY);
       drawRemappedSprite(ctx, powerPlantSprite, sx, sy + GENERATOR_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(level.powerPlant.x, level.powerPlant.y, bbcMicroColours.cyan);
@@ -303,8 +304,8 @@ export function renderLevel(
   }
   if (!podDetached) {
     if (podStandSprite) {
-      const sx = Math.round(toScreenX(level.podPedestal.x,camX));
-      const sy = Math.round(wy(level.podPedestal.y) - camY);
+      const sx = Math.floor(toScreenX(level.podPedestal.x,camX));
+      const sy = Math.floor(wy(level.podPedestal.y) - camY);
       drawRemappedSprite(ctx, podStandSprite, sx, sy + POD_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(level.podPedestal.x, level.podPedestal.y, bbcMicroColours.white);
@@ -314,8 +315,8 @@ export function renderLevel(
     if (destroyedFuel?.has(i)) continue;
     const f = level.fuel[i];
     if (fuelSprite) {
-      const sx = Math.round(toScreenX(f.x,camX));
-      const sy = Math.round(wy(f.y) - camY);
+      const sx = Math.floor(toScreenX(f.x,camX));
+      const sy = Math.floor(wy(f.y) - camY);
       drawRemappedSprite(ctx, fuelSprite, sx, sy + FUEL_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(f.x, f.y, bbcMicroColours.magenta);
@@ -326,8 +327,8 @@ export function renderLevel(
     const t = level.turrets[i];
     if (turretSprites) {
       const sprite = getTurretSprite(t.direction, turretSprites);
-      const sx = Math.round(toScreenX(t.x,camX));
-      const sy = Math.round(wy(t.y) - camY);
+      const sx = Math.floor(toScreenX(t.x,camX));
+      const sy = Math.floor(wy(t.y) - camY);
       drawRemappedSprite(ctx, sprite, sx, sy + TURRET_Y_OFFSET, level.objectColor, level.terrainColor);
     } else {
       drawMarker(t.x, t.y, bbcMicroColours.red);
@@ -337,8 +338,8 @@ export function renderLevel(
   if (switchSprites) {
     for (const sw of level.switches) {
       const sprite = sw.direction === 'left' ? switchSprites.left : switchSprites.right;
-      const sx = Math.round(toScreenX(sw.x,camX));
-      const sy = Math.round(wy(sw.y) - camY);
+      const sx = Math.floor(toScreenX(sw.x,camX));
+      const sy = Math.floor(wy(sw.y) - camY);
       drawRemappedSprite(ctx, sprite, sx, sy + SWITCH_Y_OFFSET, level.objectColor, level.terrainColor);
     }
   }
@@ -347,18 +348,18 @@ export function renderLevel(
   const spriteIdx = rotationToSpriteIndex(playerRotation);
   const sprite = shipSprites[spriteIdx];
   //const center = shipCenters[spriteIdx];
-  const screenX = Math.round(wx(playerX) - camX);
-  const screenY = Math.round(wy(playerY) - camY);
-  const shipDrawX = Math.round(screenX - sprite.centerX);
-  const shipDrawY = Math.round(screenY - sprite.centerY);
+  const screenX = (wx(playerX) - camX);
+  const screenY = (wy(playerY) - camY);
+  const shipDrawX = Math.floor(screenX - sprite.centerX);
+  const shipDrawY = Math.floor(screenY - sprite.centerY);
 
   if (!hideShip) {
     ctx.drawImage(sprite.bitmap, shipDrawX, shipDrawY);
 
     if (shieldSprite) {
       // Shield is centered on the canvas (same size as ship sprites)
-      const shieldDrawX = Math.round(screenX - shieldSprite.width / 2);
-      const shieldDrawY = Math.round(screenY - shieldSprite.height / 2);
+      const shieldDrawX = Math.floor(screenX - shieldSprite.width / 2);
+      const shieldDrawY = Math.floor(screenY - shieldSprite.height / 2);
       drawWhiteReplacedSprite(ctx, shieldSprite, shieldDrawX, shieldDrawY, bbcMicroColours.green);
     }
   }

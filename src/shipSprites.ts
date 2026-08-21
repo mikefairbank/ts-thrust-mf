@@ -232,6 +232,18 @@ export async function loadSwitchSprites(): Promise<SwitchSprites> {
     loadSpriteWithMask(switchLeftPng),
     loadSpriteWithMask(switchRightPng),
   ]);
+  // Left switch: fill in right-hand edge.
+  for (const row of left.maskLeftRightPixelValues.rows) {
+    if (row.rightX >= row.leftX) {
+      row.rightX = left.maskLeftRightPixelValues.rightX;
+    }
+  }
+  // Right switch: fill in left-hand edge.
+  for (const row of right.maskLeftRightPixelValues.rows) {
+    if (row.rightX >= row.leftX) {
+      row.leftX = right.maskLeftRightPixelValues.leftX;
+    }
+  }
   return { left, right };
 }
 
@@ -241,34 +253,6 @@ const spriteUrls: string[] = [
   ship16, ship17, ship18, ship19, ship20, ship21, ship22, ship23,
   ship24, ship25, ship26, ship27, ship28, ship29, ship30, ship31
 ];
-
-
-/*export async function loadSpriteOld(url: string): Promise<ImageBitmap> {
-  const img = new Image();
-  img.src = url;
-  await img.decode();
-
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    if (r < 128 && g < 128 && b < 128) {
-      data[i + 3] = 0;
-    }
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-  return createImageBitmap(canvas);
-}*/
 
 export interface SpriteCenter {
   x: number;
