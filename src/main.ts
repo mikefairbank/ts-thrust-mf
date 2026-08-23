@@ -1,11 +1,11 @@
-import {renderLevel, drawStatusBar, drawText, drawRemappedSprite, rotationToSpriteIndex, WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX} from "./rendering";
+import {renderLevel, drawStatusBar, drawText, drawRemappedSprite, rotationToSpriteIndex, WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX, getWhiteReplacedSprite, bbcMicroColours} from "./rendering";
 import {loadShipSprites, loadSpriteWithMask, loadTurretSprites, loadSwitchSprites, LoadedSprite} from "./shipSprites";
 import fuelPng from "./sprites/fuel.png";
 import powerPlantPng from "./sprites/powerPlant.png";
 import podStandPng from "./sprites/pod_stand.png";
 import podPng from "./sprites/pod.png";
 import shieldPng from "./sprites/shield.png";
-import {levels} from "./levels";
+import {levels, initialiseLevelSprites} from "./levels";
 import {createGame, tick, retryLevel, triggerMessage, advanceToNextLevel, missionComplete, addScore, startTeleport, MESSAGE_DURATION, destroyPlayerShip, destroyAttachedPod, getPlanetExplodeBgColor, SHIELD_GATE_MASK} from "./game";
 import {testCollision, CollisionResult, checkForLevelItemCollision, checkSpriteCollisionWithTerrain} from "./collision";
 import {renderBullets, removeBulletsHittingShip, removeCollidingBullets, renderPlayerBullets, processPlayerBulletCollisions} from "./bullets";
@@ -187,7 +187,8 @@ async function startGame() {
     loadSpriteWithMask(podPng),
     loadSwitchSprites(),
   ]);
-
+  await initialiseLevelSprites(fuelSprite,turretSprites, powerPlantSprite, podStandSprite, podSprite, switchSprites);
+  const shieldSpriteGreen=await getWhiteReplacedSprite(shieldSprite, bbcMicroColours.green);
   const sounds = ThrustSounds.create();
 
   function renderScene(hideShip?: boolean, landscapeRevealed?: boolean) {
@@ -222,7 +223,7 @@ async function startGame() {
     const doorPoly = getDoorPolygon(game.doorState, game.level.doorConfig);
     const shieldGate = (game.fuelTickCounter & SHIELD_GATE_MASK) !== 0;
 
-    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSprite : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
+    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSpriteGreen : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
 
     renderBullets(ctx, game.turretFiring.bullets, camX, camY, lineColor);
     renderPlayerBullets(ctx, game.playerShooting, camX, camY, lineColor);
@@ -236,17 +237,17 @@ async function startGame() {
 
     // Tractor beam / attachment line + attached pod rendering (skip during teleport)
     if (!game.teleport && (game.podLineExists || game.physics.state.podAttached)) {
-      const shipCX = Math.round(game.player.x * WORLD_SCALE_X - camX);
-      const shipCY = Math.round(game.player.y * WORLD_SCALE_Y - camY);
+      const shipCX = Math.floor(game.player.x * WORLD_SCALE_X - camX);
+      const shipCY = Math.floor(game.player.y * WORLD_SCALE_Y - camY);
 
       let podCX: number, podCY: number;
       if (game.physics.state.podAttached) {
-        podCX = Math.round(game.physics.state.podX * WORLD_SCALE_X - camX);
-        podCY = Math.round(game.physics.state.podY * WORLD_SCALE_Y - camY);
+        podCX = Math.floor(game.physics.state.podX * WORLD_SCALE_X - camX);
+        podCY = Math.floor(game.physics.state.podY * WORLD_SCALE_Y - camY);
       } else {
         //podCX = Math.round(game.level.podPedestal.x * WORLD_SCALE_X - camX + Math.floor(podStandSprite.width / 2));
         podCX = toScreenX(game.level.podPedestal.x, camX)+Math.floor(podStandSprite.width / 2);
-        podCY = Math.round(game.level.podPedestal.y * WORLD_SCALE_Y - camY - 1 + Math.floor(podSprite.height / 2));
+        podCY = Math.floor(game.level.podPedestal.y * WORLD_SCALE_Y - camY - 1 + Math.floor(podSprite.height / 2));
       }
 
       ctx.fillStyle = lineColor;
@@ -267,7 +268,7 @@ async function startGame() {
       }
 
       if (game.physics.state.podAttached) {
-        drawRemappedSprite(ctx, podSprite, podCX - Math.floor(podSprite.width / 2), podCY - Math.floor(podSprite.height / 2), game.level.objectColor, effectiveLevel.terrainColor);
+        drawRemappedSprite(ctx, game.level.remappedPodSprite, podCX - Math.floor(podSprite.width / 2), podCY - Math.floor(podSprite.height / 2));
       }
     }
 

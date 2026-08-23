@@ -170,59 +170,114 @@ function drawWhiteReplacedSprite(
   tintCtx.putImageData(imageData, 0, 0);
   ctx.drawImage(tintCanvas, x, y);
 }
+export async function getWhiteReplacedSprite(
+  sprite: LoadedSprite,
+  color: string,
+): Promise<ImageBitmap> {
 
-/**
- * Remap source sprite placeholder colours to the level palette:
- *   White (255,255,255) → colour3 (object colour, per level)
- *   Red   (255,0,0)     → colour1 (always yellow)
- *   Other non-black      → colour2 (landscape colour, per level)
- */
+  tintCanvas.width = sprite.width;
+  tintCanvas.height = sprite.height;
+
+  tintCtx.clearRect(0, 0, sprite.width, sprite.height);
+  tintCtx.drawImage(sprite.bitmap, 0, 0);
+
+  const imageData = tintCtx.getImageData(0, 0, sprite.width, sprite.height);
+  const data = imageData.data;
+
+  const [cr, cg, cb] = parseHexColor(color);
+
+  for (let i = 0; i < data.length; i += 4) {
+
+    if (
+      data[i] === 255 &&
+      data[i + 1] === 255 &&
+      data[i + 2] === 255 &&
+      data[i + 3] > 0
+    ) {
+      data[i] = cr;
+      data[i + 1] = cg;
+      data[i + 2] = cb;
+    }
+  }
+
+  tintCtx.putImageData(imageData, 0, 0);
+
+  return createImageBitmap(tintCanvas);
+}
+
 export function drawRemappedSprite(
   ctx: CanvasRenderingContext2D,
-  sprite: LoadedSprite,
+  remappedBitmap: ImageBitmap,
   x: number,
-  y: number,
+  y: number
+) {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) {
+    throw new Error("Non-integer sprite coords");
+  }
+  ctx.drawImage(remappedBitmap, x, y);
+}
+
+
+export async function getRemappedSprite(
+  sprite: LoadedSprite,
   colour3: string,
   colour2: string,
-) {
-  if (!Number.isInteger(x) || !Number.isInteger(y)) throw new Error(`Non-integer sprite coords`);
+): Promise<ImageBitmap> {
+  /**
+   * Remap source sprite placeholder colours to the level palette:
+   *   White (255,255,255) → colour3 (object colour, per level)
+   *   Red   (255,0,0)     → colour1 (always yellow)
+   *   Other non-black      → colour2 (landscape colour, per level)
+   */
   tintCanvas.width = sprite.width;
   tintCanvas.height = sprite.height;
   tintCtx.clearRect(0, 0, sprite.width, sprite.height);
   tintCtx.drawImage(sprite.bitmap, 0, 0);
   const imageData = tintCtx.getImageData(0, 0, sprite.width, sprite.height);
   const data = imageData.data;
+
   const [c3r, c3g, c3b] = parseHexColor(colour3);
   const [c2r, c2g, c2b] = parseHexColor(colour2);
-  // Colour 1 is always yellow
-  const c1r = 255, c1g = 255, c1b = 0;
+
+  const c1r = 255;
+  const c1g = 255;
+  const c1b = 0;
+
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] === 0) continue;
-    const r = data[i], g = data[i + 1], b = data[i + 2];
+    if (data[i + 3] === 0) {
+      continue;
+    }
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
     if (r === 255 && g === 255 && b === 255) {
-      // White → colour 3 (object colour)
-      data[i] = c3r; data[i + 1] = c3g; data[i + 2] = c3b;
+      data[i] = c3r;
+      data[i + 1] = c3g;
+      data[i + 2] = c3b;
     } else if (r === 255 && g === 0 && b === 0) {
-      // Red → colour 1 (yellow)
-      data[i] = c1r; data[i + 1] = c1g; data[i + 2] = c1b;
+      data[i] = c1r;
+      data[i + 1] = c1g;
+      data[i + 2] = c1b;
     } else if (r > 0 || g > 0 || b > 0) {
-      // Other non-black → colour 2 (landscape colour)
-      data[i] = c2r; data[i + 1] = c2g; data[i + 2] = c2b;
+      data[i] = c2r;
+      data[i + 1] = c2g;
+      data[i + 2] = c2b;
     }
   }
   tintCtx.putImageData(imageData, 0, 0);
-  ctx.drawImage(tintCanvas, x, y);
+  return createImageBitmap(tintCanvas);
 }
+
 
 function getTurretSprite(
   direction: TurretDirection,
-  sprites: TurretSprites,
+  level,
 ): LoadedSprite {
   switch (direction) {
-    case 'up_left': return sprites.upLeft;
-    case 'up_right': return sprites.upRight;
-    case 'down_left': return sprites.downLeft;
-    case 'down_right': return sprites.downRight;
+    case 'up_left': return level.remappedTurretUpLeftSprite;
+    case 'up_right': return level.remappedTurretUpRightSprite;
+    case 'down_left': return level.remappedTurretDownLeftSprite;
+    case 'down_right': return level.remappedTurretDownRightSprite;
   }
 }
 
@@ -297,7 +352,7 @@ export function renderLevel(
     if (powerPlantSprite) {
       const sx = Math.floor(toScreenX(level.powerPlant.x,camX));
       const sy = Math.floor(wy(level.powerPlant.y) - camY);
-      drawRemappedSprite(ctx, powerPlantSprite, sx, sy + GENERATOR_Y_OFFSET, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, level.remappedPowerPlantSprite, sx, sy + GENERATOR_Y_OFFSET);
     } else {
       drawMarker(level.powerPlant.x, level.powerPlant.y, bbcMicroColours.cyan);
     }
@@ -306,7 +361,7 @@ export function renderLevel(
     if (podStandSprite) {
       const sx = Math.floor(toScreenX(level.podPedestal.x,camX));
       const sy = Math.floor(wy(level.podPedestal.y) - camY);
-      drawRemappedSprite(ctx, podStandSprite, sx, sy + POD_Y_OFFSET, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, level.remappedPodStandSprite, sx, sy + POD_Y_OFFSET);
     } else {
       drawMarker(level.podPedestal.x, level.podPedestal.y, bbcMicroColours.white);
     }
@@ -317,7 +372,7 @@ export function renderLevel(
     if (fuelSprite) {
       const sx = Math.floor(toScreenX(f.x,camX));
       const sy = Math.floor(wy(f.y) - camY);
-      drawRemappedSprite(ctx, fuelSprite, sx, sy + FUEL_Y_OFFSET, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, level.remappedFuelSprite!, sx, sy + FUEL_Y_OFFSET);
     } else {
       drawMarker(f.x, f.y, bbcMicroColours.magenta);
     }
@@ -326,10 +381,10 @@ export function renderLevel(
     if (destroyedTurrets?.has(i)) continue;
     const t = level.turrets[i];
     if (turretSprites) {
-      const sprite = getTurretSprite(t.direction, turretSprites);
+      const sprite = getTurretSprite(t.direction, level);
       const sx = Math.floor(toScreenX(t.x,camX));
       const sy = Math.floor(wy(t.y) - camY);
-      drawRemappedSprite(ctx, sprite, sx, sy + TURRET_Y_OFFSET, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, sprite, sx, sy + TURRET_Y_OFFSET);
     } else {
       drawMarker(t.x, t.y, bbcMicroColours.red);
     }
@@ -337,10 +392,10 @@ export function renderLevel(
   // Draw switches
   if (switchSprites) {
     for (const sw of level.switches) {
-      const sprite = sw.direction === 'left' ? switchSprites.left : switchSprites.right;
+      const sprite = sw.direction === 'left' ? level.remappedSwitchLeftSprite : level.remappedSwitchRightSprite;
       const sx = Math.floor(toScreenX(sw.x,camX));
       const sy = Math.floor(wy(sw.y) - camY);
-      drawRemappedSprite(ctx, sprite, sx, sy + SWITCH_Y_OFFSET, level.objectColor, level.terrainColor);
+      drawRemappedSprite(ctx, sprite, sx, sy + SWITCH_Y_OFFSET);
     }
   }
 
@@ -358,9 +413,9 @@ export function renderLevel(
 
     if (shieldSprite) {
       // Shield is centered on the canvas (same size as ship sprites)
-      const shieldDrawX = Math.floor(screenX - shieldSprite.width / 2);
-      const shieldDrawY = Math.floor(screenY - shieldSprite.height / 2);
-      drawWhiteReplacedSprite(ctx, shieldSprite, shieldDrawX, shieldDrawY, bbcMicroColours.green);
+      const shieldDrawX = Math.round(screenX - shieldSprite.width / 2);
+      const shieldDrawY = Math.round(screenY - shieldSprite.height / 2);
+      drawRemappedSprite(ctx, shieldSprite, shieldDrawX, shieldDrawY);
     }
   }
 }

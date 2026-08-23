@@ -1,4 +1,4 @@
-import {bbcMicroColours, rasteriseConvexPolygon, RasterPolygon, Point} from "./rendering";
+import {bbcMicroColours, rasteriseConvexPolygon, RasterPolygon, Point, getRemappedSprite} from "./rendering";
 import {rasterPolygonWorldToPixels} from "./collision";
 
 
@@ -40,8 +40,37 @@ export type Level = {
     doorConfig: DoorConfig | null;
     landscapeLeftRasterisedPolygonPixels?: RasterPolygon;
     landscapeRightRasterisedPolygonPixels?: RasterPolygon;
+
+    remappedFuelSprite?: ImageBitmap;
+    remappedPowerPlantSprite?: ImageBitmap;
+    remappedPodStandSprite?: ImageBitmap;
+    remappedSwitchLeftSprite?: ImageBitmap;
+    remappedSwitchRightSprite?: ImageBitmap;
+
+    remappedTurretUpLeftSprite?: ImageBitmap;
+    remappedTurretUpRightSprite?: ImageBitmap;
+    remappedTurretDownLeftSprite?: ImageBitmap;
+    remappedTurretDownRightSprite?: ImageBitmap;
 };
 
+
+export type Level = {
+  name: string;
+  terrainColor: string;
+  objectColor: string;
+
+  spawnPoints: SpawnPoint[];
+  polygons: Polygon[];
+  turrets: TurretPosition[];
+  powerPlant: ObjectPosition;
+  podPedestal: ObjectPosition;
+  fuel: ObjectPosition[];
+  switches: SwitchPosition[];
+  doorConfig: DoorConfig | null;
+
+  landscapeLeftRasterisedPolygonPixels?: RasterPolygon;
+  landscapeRightRasterisedPolygonPixels?: RasterPolygon;
+};
 export const levels: Level[] = [
     {
         name: "Level 0",
@@ -329,8 +358,27 @@ function polygonToPoints(poly: Polygon): Point[] {
     return points;
 }
 
-for (const level of levels) {
+export async function initialiseLevelSprites(
+  fuelSprite: LoadedSprite,
+  turretSprites: TurretSprites,
+  powerPlantSprite: LoadedSprite,
+  podStandSprite: LoadedSprite,
+  podSprite: LoadedSprite,
+  switchSprites: SwitchSprites,
+): Promise<void> {
+  for (const level of levels) {
     level.landscapeLeftRasterisedPolygonPixels=rasterPolygonWorldToPixels(rasteriseConvexPolygon(polygonToPoints(level.polygons[0]!)));
     level.landscapeRightRasterisedPolygonPixels=rasterPolygonWorldToPixels(rasteriseConvexPolygon(polygonToPoints(level.polygons[1]!)));
-}
 
+    level.remappedFuelSprite = await getRemappedSprite(fuelSprite, level.objectColor, level.terrainColor);
+    level.remappedPowerPlantSprite = await getRemappedSprite(powerPlantSprite, level.objectColor,level.terrainColor);
+    level.remappedPodStandSprite = await getRemappedSprite(podStandSprite, level.objectColor, level.terrainColor);
+    level.remappedPodSprite = await getRemappedSprite(podSprite, level.objectColor, level.terrainColor);
+    level.remappedSwitchLeftSprite = await getRemappedSprite(switchSprites.left, level.objectColor, level.terrainColor);
+    level.remappedSwitchRightSprite = await getRemappedSprite(switchSprites.right, level.objectColor, level.terrainColor);
+    level.remappedTurretUpLeftSprite = await getRemappedSprite(turretSprites.upLeft, level.objectColor, level.terrainColor);
+    level.remappedTurretUpRightSprite = await getRemappedSprite(turretSprites.upRight, level.objectColor, level.terrainColor);
+    level.remappedTurretDownLeftSprite = await getRemappedSprite(turretSprites.downLeft, level.objectColor, level.terrainColor);
+    level.remappedTurretDownRightSprite = await getRemappedSprite(turretSprites.downRight, level.objectColor, level.terrainColor);
+  }
+}

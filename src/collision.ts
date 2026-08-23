@@ -238,7 +238,7 @@ export function checkForLevelItemCollision(
   for (let i = 0; i < level.switches.length; i++) {
     const sw = level.switches[i];
     const switchSprite = sw.direction === "right" ? switchSprites.right : switchSprites.left;
-    if (masksOverlap(worldX, worldY, movingSprite, sw.x*WORLD_SCALE_Y, sw.y*WORLD_SCALE_Y+SWITCH_Y_OFFSET, switchSprite)) {
+    if (masksOverlap(spritePixelX, spritePixelY, movingSprite, sw.x*WORLD_SCALE_X, sw.y*WORLD_SCALE_Y+SWITCH_Y_OFFSET, switchSprite)) {
       return {type: "switch", index: i, x: sw.x, y: sw.y};
     }
   }
