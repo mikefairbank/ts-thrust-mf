@@ -28,7 +28,7 @@ export function tickDoor(state: DoorState, config: DoorConfig | null): void {
     }
 }
 
-export function getDoorPolygon(state: DoorState,config: DoorConfig | null): RasterPolygon | null {
+/*export function getDoorPolygon(state: DoorState,config: DoorConfig | null): RasterPolygon | null {
   if (!config) return null;
   let points: Point[] | null;
   switch (config.type) {
@@ -46,6 +46,41 @@ export function getDoorPolygon(state: DoorState,config: DoorConfig | null): Rast
     return null;
   }
   return rasteriseConvexPolygon(points);
+}*/
+
+let cachedDoorType: DoorConfig["type"] | null = null;
+let cachedCounterB = 0;
+let cachedPolygon: RasterPolygon | null = null;
+
+export function getDoorPolygon(
+  state: DoorState,
+  config: DoorConfig | null,
+): RasterPolygon | null {
+  if (!config) {
+    return null;
+  }
+  if (cachedPolygon && cachedDoorType === config.type && cachedCounterB === state.counterB) {
+    return cachedPolygon;
+  }
+  let points: Point[] | null;
+  switch (config.type) {
+    case "slide":
+      points = getSlidePolygon(state.counterB, config);
+      break;
+    case "step":
+      points = getStepPolygon(state.counterB, config);
+      break;
+    case "chevron":
+      points = getChevronPolygon(state.counterB, config);
+      break;
+  }
+  if (!points) {
+    return null;
+  }
+  cachedDoorType = config.type;
+  cachedCounterB = state.counterB;
+  cachedPolygon = rasteriseConvexPolygon(points);
+  return cachedPolygon;
 }
 
 function getSlidePolygon(counterB: number, config: DoorConfig): Point[] | null {

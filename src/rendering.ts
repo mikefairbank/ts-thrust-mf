@@ -33,11 +33,11 @@ export type RasterPolygon = {
 };
 
 export function rasteriseConvexPolygon(
-    points: Point[],
+  points: Point[],
 ): RasterPolygon {
 
   if (points.length < 3) {
-    return {topY: 0, bottomY: -1, leftX: 0, rightX: -1, rows: []};
+    return { topY: 0, bottomY: -1, leftX: 0, rightX: -1, rows: [] };
   }
 
   let minY = Infinity;
@@ -46,33 +46,62 @@ export function rasteriseConvexPolygon(
   let maxX = -Infinity;
 
   for (const p of points) {
-      minY = Math.min(minY, p.y);
-      maxY = Math.max(maxY, p.y);
-      minX = Math.min(minX, p.x);
-      maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
   }
+
   const topY = Math.ceil(minY);
   const bottomY = Math.floor(maxY);
+
   const rows: RasterRow[] = [];
-  for (let y = topY; y <= bottomY; y += 1) {
-      const intersections: number[] = [];
-      for (let i = 0; i < points.length; i++) {
-          const a = points[i];
-          const b = points[(i + 1) % points.length];
-          if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
-              const t = (y - a.y) / (b.y - a.y);
-              intersections.push(a.x + t * (b.x - a.x));
-          }
+
+  for (let y = topY; y <= bottomY; y++) {
+
+    const intersections: number[] = [];
+
+    for (let i = 0; i < points.length; i++) {
+
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+
+      if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
+        const t = (y - a.y) / (b.y - a.y);
+        intersections.push(a.x + t * (b.x - a.x));
       }
-      intersections.sort((a, b) => a - b);
-      if (intersections.length >= 2) {
-          rows.push({leftX: Math.ceil(intersections[0]),
-              rightX: Math.floor(intersections[intersections.length - 1])});
-      } else {
-          rows.push({leftX: 0, rightX: -1});
-      }
+    }
+
+    intersections.sort((a, b) => a - b);
+
+    if (intersections.length >= 2) {
+
+      rows.push({
+        leftX: Math.round(Math.ceil(intersections[0]) * WORLD_SCALE_X),
+        rightX: Math.round(Math.floor(intersections[intersections.length - 1]) * WORLD_SCALE_X),
+      });
+
+    } else {
+
+      rows.push({
+        leftX: 1,
+        rightX: -1,
+      });
+    }
+
+    rows.push({
+      leftX: 1,
+      rightX: -1,
+    });
   }
-  return {topY,bottomY,leftX: Math.floor(minX),rightX: Math.ceil(maxX),rows};
+
+  return {
+    topY: Math.round(topY * WORLD_SCALE_Y),
+    bottomY: Math.round(bottomY * WORLD_SCALE_Y + (WORLD_SCALE_Y - 1)),
+    leftX: Math.round(Math.floor(minX) * WORLD_SCALE_X),
+    rightX: Math.round(Math.ceil(maxX) * WORLD_SCALE_X),
+    rows,
+  };
 }
 
 
@@ -336,7 +365,7 @@ export function renderLevel(
   // Draw door polygon (terrain-colored overlay) at wrapping offsets
   if (doorPolygon) {
     for (const offset of offsets) {
-      fillRasteredPolygonPixelCoords(ctx, rasterPolygonWorldToPixels(doorPolygon), level.terrainColor,camX - offset,camY);
+      fillRasteredPolygonPixelCoords(ctx, doorPolygon, level.terrainColor,camX - offset,camY);
     }
   }
 

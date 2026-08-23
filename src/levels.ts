@@ -367,8 +367,8 @@ export async function initialiseLevelSprites(
   switchSprites: SwitchSprites,
 ): Promise<void> {
   for (const level of levels) {
-    level.landscapeLeftRasterisedPolygonPixels=rasterPolygonWorldToPixels(rasteriseConvexPolygon(polygonToPoints(level.polygons[0]!)));
-    level.landscapeRightRasterisedPolygonPixels=rasterPolygonWorldToPixels(rasteriseConvexPolygon(polygonToPoints(level.polygons[1]!)));
+    level.landscapeLeftRasterisedPolygonPixels=rasteriseConvexPolygon(polygonToPoints(level.polygons[0]!));
+    level.landscapeRightRasterisedPolygonPixels=rasteriseConvexPolygon(polygonToPoints(level.polygons[1]!));
 
     level.remappedFuelSprite = await getRemappedSprite(fuelSprite, level.objectColor, level.terrainColor);
     level.remappedPowerPlantSprite = await getRemappedSprite(powerPlantSprite, level.objectColor,level.terrainColor);

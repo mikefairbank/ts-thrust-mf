@@ -301,7 +301,7 @@ export function checkSpriteCollisionWithTerrain(
       return true;
     }
 
-    if (doorPolygon &&checkRasterPolygonOverlap(rasterPolygonWorldToPixels(doorPolygon),spritePolygon, x, spritePixelY)) {
+    if (doorPolygon &&checkRasterPolygonOverlap(doorPolygon,spritePolygon, x, spritePixelY)) {
       return true;
     }
   }
@@ -370,32 +370,3 @@ export function testCollision(
   return CollisionResult.None;
 }
 
-export function rasterPolygonWorldToPixels(
-  poly: RasterPolygon,
-): RasterPolygon {
-
-  const rows: RasterRow[] = [];
-
-  for (let i = 0; i < poly.rows.length; i++) {
-
-    const row = poly.rows[i];
-
-    rows.push({
-      leftX: Math.round(row.leftX * WORLD_SCALE_X),
-      rightX: Math.round(row.rightX * WORLD_SCALE_X),
-    });
-
-    rows.push({
-      leftX: 1,
-      rightX: -1,
-    });
-  }
-
-  return {
-    topY: Math.round(poly.topY * WORLD_SCALE_Y),
-    bottomY: Math.round(poly.bottomY * WORLD_SCALE_Y + (WORLD_SCALE_Y - 1)),
-    leftX: Math.round(poly.leftX * WORLD_SCALE_X),
-    rightX: Math.round(poly.rightX * WORLD_SCALE_X),
-    rows,
-  };
-}
