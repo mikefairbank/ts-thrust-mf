@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thrust</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #111111; display: flex; justify-content: center; align-items: center; }
+    #canvasContainer { position: relative; }
+    #canvasContainer canvas { display: block; background: #000; image-rendering: pixelated; image-rendering: crisp-edges; }
+    #canvasContainer #postprocess { position: absolute; top: 0; left: 0; display: none; }
+  </style>
+  <script type="module" crossorigin src="./assets/index-CzLLmtED.js"></script>
+</head>
+<body>
+  <div id="canvasContainer">
+    <canvas id="game"></canvas>
+    <canvas id="postprocess"></canvas>
+  </div>
+</body>
+</html>
