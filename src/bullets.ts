@@ -1,6 +1,6 @@
 import { ANGLE_X, ANGLE_Y } from "./physics";
 import { Level } from "./levels";
-import { WORLD_SCALE_X, WORLD_SCALE_Y, toScreenX, RasterPolygon } from "./rendering";
+import { WORLD_SCALE_X, WORLD_SCALE_Y, RasterPolygon } from "./rendering";
 import { LoadedSprite, TurretSprites, SwitchSprites } from "./shipSprites";
 import { checkBulletWithTerrainCollision, checkForBulletLevelItemCollision, checkBulletHittingSprite} from "./collision";
 

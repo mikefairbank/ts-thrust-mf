@@ -2,7 +2,7 @@ import { Level, SpawnPoint, levels } from "./levels";
 import { ThrustPhysics, ThrustInput } from "./physics";
 import { CollisionResult } from "./collision";
 import { ScrollState, ScrollConfig, createScrollConfig, createScrollState, updateScroll } from "./scroll";
-import { WORLD_SCALE_X, WORLD_SCALE_Y, bbcMicroColours, WORLD_WIDTH, toScreenX } from "./rendering";
+import { WORLD_SCALE_X, WORLD_SCALE_Y, bbcMicroColours } from "./rendering";
 import { TurretFiringState, createTurretFiringState, tickTurrets, PlayerShootingState, createPlayerShootingState, tickPlayerShooting, tickPlayerBullets } from "./bullets";
 import { ExplosionState, createExplosionState, tickExplosions, spawnExplosion } from "./explosions";
 import { FuelCollectionState, createFuelCollectionState, tickFuelCollection } from "./fuelCollection";
@@ -190,6 +190,7 @@ function applySpawnPoint(state: GameState, spawn: SpawnPoint): void {
   state.physics.state.y = spawn.midpointY;
   state.player.x = spawn.midpointX;
   state.player.y = spawn.midpointY;
+  state.player.playerWorldWrapX = 0;
   state.physics.state.shipX = spawn.midpointX;
   state.physics.state.shipY = spawn.midpointY;
   state.oldShipX = spawn.midpointX;
@@ -574,8 +575,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
         // Pod circle (11x11) sits at the top — center at pixel (5, 5) from sprite origin
         const shipSX = state.player.x * WORLD_SCALE_X - camX;
         const shipSY = state.player.y * WORLD_SCALE_Y - camY;
-        //const podSX = state.level.podPedestal.x * WORLD_SCALE_X - camX + 5;
-        const podSX = toScreenX(state.level.podPedestal.x, camX)+5;
+        const podSX = (state.level.podPedestal.x+state.player.playerWorldWrapX) * WORLD_SCALE_X - camX + 5;
         const podSY = state.level.podPedestal.y * WORLD_SCALE_Y - camY + 4;
 
         // Pod must be on screen
@@ -590,12 +590,10 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
             // Far zone + beam started: attach pod at circle center
             // Use the nearest wrapped copy of the pod so the initial tether
             // angle is correct even after multiple world wraps.
-            const worldWidth = WORLD_WIDTH / WORLD_SCALE_X;
             const podWorldX = state.level.podPedestal.x + 5 / WORLD_SCALE_X;
-            const podWorldXWrapped = podWorldX + Math.round((state.player.x - podWorldX) / worldWidth) * worldWidth;
+            const podWorldXWrapped = podWorldX + state.player.playerWorldWrapX;
             const podWorldY = state.level.podPedestal.y + 4 / WORLD_SCALE_Y;
             state.physics.attachPod(podWorldXWrapped, podWorldY);
-            state.podLineExists = true;
             state.podLineExists = true;
             state.podAttachedThisTick = true;
           }

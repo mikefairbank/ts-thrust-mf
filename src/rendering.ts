@@ -309,13 +309,6 @@ function getTurretSprite(
   }
 }
 
-export function toScreenX(worldX: number, camX: number): number {
-    let sx = worldX * WORLD_SCALE_X - camX;
-    while (sx < -WORLD_WIDTH / 2) sx += WORLD_WIDTH;
-    while (sx >  WORLD_WIDTH / 2) sx -= WORLD_WIDTH;
-    return sx;
-}
-
 export const GENERATOR_Y_OFFSET = -2;
 export const FUEL_Y_OFFSET = -2;
 export const POD_Y_OFFSET = -1;
@@ -371,7 +364,7 @@ export function renderLevel(
 
   // Draw objects (with wrapping)
   const drawMarker = (ox: number, oy: number, colour: string) => {
-    const sx = Math.floor(toScreenX(ox,camX));
+    const sx = Math.floor(wx(ox+playerWorldWrapX) - camX);
     const sy = Math.floor(wy(oy) - camY);
     ctx.fillStyle = colour;
     ctx.fillRect(sx - 3, sy - 3, 7, 7);
@@ -379,7 +372,7 @@ export function renderLevel(
 
   if (!generatorDestroyed && (generatorVisible ?? true)) {
     if (powerPlantSprite) {
-      const sx = Math.floor(toScreenX(level.powerPlant.x,camX));
+      const sx = Math.floor(wx(level.powerPlant.x+playerWorldWrapX) - camX);
       const sy = Math.floor(wy(level.powerPlant.y) - camY);
       drawRemappedSprite(ctx, level.remappedPowerPlantSprite!, sx, sy + GENERATOR_Y_OFFSET);
     } else {
@@ -388,7 +381,7 @@ export function renderLevel(
   }
   if (!podDetached) {
     if (podStandSprite) {
-      const sx = Math.floor(toScreenX(level.podPedestal.x,camX));
+      const sx = Math.floor(wx(level.podPedestal.x+playerWorldWrapX) - camX);
       const sy = Math.floor(wy(level.podPedestal.y) - camY);
       drawRemappedSprite(ctx, level.remappedPodStandSprite!, sx, sy + POD_Y_OFFSET);
     } else {
@@ -399,7 +392,7 @@ export function renderLevel(
     if (destroyedFuel?.has(i)) continue;
     const f = level.fuel[i];
     if (fuelSprite) {
-      const sx = Math.floor(toScreenX(f.x,camX));
+      const sx = Math.floor(wx(f.x+playerWorldWrapX) - camX);
       const sy = Math.floor(wy(f.y) - camY);
       drawRemappedSprite(ctx, level.remappedFuelSprite!, sx, sy + FUEL_Y_OFFSET);
     } else {
@@ -411,7 +404,7 @@ export function renderLevel(
     const t = level.turrets[i];
     if (turretSprites) {
       const sprite = getTurretSprite(t.direction, level);
-      const sx = Math.floor(toScreenX(t.x,camX));
+      const sx = Math.floor(wx(t.x+playerWorldWrapX) - camX);
       const sy = Math.floor(wy(t.y) - camY);
       drawRemappedSprite(ctx, sprite!, sx, sy + TURRET_Y_OFFSET);
     } else {
@@ -422,7 +415,7 @@ export function renderLevel(
   if (switchSprites) {
     for (const sw of level.switches) {
       const sprite = sw.direction === 'left' ? level.remappedSwitchLeftSprite : level.remappedSwitchRightSprite;
-      const sx = Math.floor(toScreenX(sw.x,camX));
+      const sx = Math.floor(wx(sw.x+playerWorldWrapX) - camX);
       const sy = Math.floor(wy(sw.y) - camY);
       drawRemappedSprite(ctx, sprite!, sx, sy + SWITCH_Y_OFFSET);
     }

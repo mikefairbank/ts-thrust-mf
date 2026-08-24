@@ -174,8 +174,7 @@ export function checkForLevelItemCollision(
   podY?: number,
 ): LevelItemCollision {
 
-  const worldWidth = WORLD_WIDTH ;
-  spritePixelX = ((spritePixelX % worldWidth) + worldWidth) % worldWidth;
+  spritePixelX = ((spritePixelX % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
 
   const masksOverlap = (
     ax: number,
@@ -285,25 +284,17 @@ export function checkSpriteCollisionWithTerrain(
   spritePixelX: number, // top left not centre
   spritePixelY: number, // top left not centre
 ): boolean {
-  const worldWidth = WORLD_WIDTH;
-  const baseOffset = Math.round(spritePixelX / worldWidth) * worldWidth;
+  spritePixelX = ((spritePixelX % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
   if (!Number.isInteger(spritePixelX) || !Number.isInteger(spritePixelY)) throw new Error(`Non-integer sprite coords`);
-  const xCandidates = [
-    Math.floor(spritePixelX - baseOffset - worldWidth),
-    Math.floor(spritePixelX - baseOffset),
-    Math.floor(spritePixelX - baseOffset + worldWidth),
-  ];
-  for (const x of xCandidates) {
-    if (checkRasterPolygonOverlap(level.landscapeLeftRasterisedPolygonPixels!,spritePolygon, x, spritePixelY)) {
-      return true;
-    }
-    if (checkRasterPolygonOverlap(level.landscapeRightRasterisedPolygonPixels!,spritePolygon, x, spritePixelY)) {
-      return true;
-    }
-
-    if (doorPolygon &&checkRasterPolygonOverlap(doorPolygon,spritePolygon, x, spritePixelY)) {
-      return true;
-    }
+  
+  if (checkRasterPolygonOverlap(level.landscapeLeftRasterisedPolygonPixels!,spritePolygon, spritePixelX, spritePixelY)) {
+    return true;
+  }
+  if (checkRasterPolygonOverlap(level.landscapeRightRasterisedPolygonPixels!,spritePolygon, spritePixelX, spritePixelY)) {
+    return true;
+  }
+  if (doorPolygon && checkRasterPolygonOverlap(doorPolygon,spritePolygon, spritePixelX, spritePixelY)) {
+    return true;
   }
   return false;
 }
