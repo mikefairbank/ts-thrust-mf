@@ -17,7 +17,6 @@ export interface Point {
 import { Level, TurretDirection, SwitchDirection } from "./levels";
 import { fontData, charIndex, CHAR_W, CHAR_H } from "./font";
 import { TurretSprites, LoadedSprite, SwitchSprites } from "./shipSprites";
-import { rasterPolygonWorldToPixels } from "./collision";
 
 export type RasterRow = {
     leftX: number;
@@ -301,7 +300,7 @@ export async function getRemappedSprite(
 function getTurretSprite(
   direction: TurretDirection,
   level,
-): LoadedSprite {
+): ImageBitmap {
   switch (direction) {
     case 'up_left': return level.remappedTurretUpLeftSprite;
     case 'up_right': return level.remappedTurretUpRightSprite;
@@ -337,7 +336,7 @@ export function renderLevel(
   turretSprites?: TurretSprites,
   powerPlantSprite?: LoadedSprite,
   podStandSprite?: LoadedSprite,
-  shieldSprite?: LoadedSprite,
+  shieldSprite?: ImageBitmap,
   destroyedTurrets?: Set<number>,
   destroyedFuel?: Set<number>,
   generatorDestroyed?: boolean,
@@ -359,8 +358,8 @@ export function renderLevel(
   const baseOffset = playerWorldWrapX*WORLD_SCALE_X; // Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
   const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
   for (const offset of offsets) {
-    fillRasteredPolygonPixelCoords(ctx,level.landscapeLeftRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);
-    fillRasteredPolygonPixelCoords(ctx,level.landscapeRightRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);
+    fillRasteredPolygonPixelCoords(ctx,level.landscapeLeftRasterisedPolygonPixels!,level.terrainColor,camX - offset,camY);
+    fillRasteredPolygonPixelCoords(ctx,level.landscapeRightRasterisedPolygonPixels!,level.terrainColor,camX - offset,camY);
   }
   
   // Draw door polygon (terrain-colored overlay) at wrapping offsets
@@ -382,7 +381,7 @@ export function renderLevel(
     if (powerPlantSprite) {
       const sx = Math.floor(toScreenX(level.powerPlant.x,camX));
       const sy = Math.floor(wy(level.powerPlant.y) - camY);
-      drawRemappedSprite(ctx, level.remappedPowerPlantSprite, sx, sy + GENERATOR_Y_OFFSET);
+      drawRemappedSprite(ctx, level.remappedPowerPlantSprite!, sx, sy + GENERATOR_Y_OFFSET);
     } else {
       drawMarker(level.powerPlant.x, level.powerPlant.y, bbcMicroColours.cyan);
     }
@@ -391,7 +390,7 @@ export function renderLevel(
     if (podStandSprite) {
       const sx = Math.floor(toScreenX(level.podPedestal.x,camX));
       const sy = Math.floor(wy(level.podPedestal.y) - camY);
-      drawRemappedSprite(ctx, level.remappedPodStandSprite, sx, sy + POD_Y_OFFSET);
+      drawRemappedSprite(ctx, level.remappedPodStandSprite!, sx, sy + POD_Y_OFFSET);
     } else {
       drawMarker(level.podPedestal.x, level.podPedestal.y, bbcMicroColours.white);
     }
@@ -414,7 +413,7 @@ export function renderLevel(
       const sprite = getTurretSprite(t.direction, level);
       const sx = Math.floor(toScreenX(t.x,camX));
       const sy = Math.floor(wy(t.y) - camY);
-      drawRemappedSprite(ctx, sprite, sx, sy + TURRET_Y_OFFSET);
+      drawRemappedSprite(ctx, sprite!, sx, sy + TURRET_Y_OFFSET);
     } else {
       drawMarker(t.x, t.y, bbcMicroColours.red);
     }
@@ -425,7 +424,7 @@ export function renderLevel(
       const sprite = sw.direction === 'left' ? level.remappedSwitchLeftSprite : level.remappedSwitchRightSprite;
       const sx = Math.floor(toScreenX(sw.x,camX));
       const sy = Math.floor(wy(sw.y) - camY);
-      drawRemappedSprite(ctx, sprite, sx, sy + SWITCH_Y_OFFSET);
+      drawRemappedSprite(ctx, sprite!, sx, sy + SWITCH_Y_OFFSET);
     }
   }
 

@@ -1,6 +1,5 @@
 import {bbcMicroColours, rasteriseConvexPolygon, RasterPolygon, Point, getRemappedSprite} from "./rendering";
-import {rasterPolygonWorldToPixels} from "./collision";
-
+import {LoadedSprite, TurretSprites, SwitchSprites} from "./shipSprites";
 
 export type Polygon = Array<number>;
 export type ObjectPosition = { x: number, y: number}
@@ -44,6 +43,7 @@ export type Level = {
     remappedFuelSprite?: ImageBitmap;
     remappedPowerPlantSprite?: ImageBitmap;
     remappedPodStandSprite?: ImageBitmap;
+    remappedPodSprite?: ImageBitmap;
     remappedSwitchLeftSprite?: ImageBitmap;
     remappedSwitchRightSprite?: ImageBitmap;
 
@@ -54,23 +54,6 @@ export type Level = {
 };
 
 
-export type Level = {
-  name: string;
-  terrainColor: string;
-  objectColor: string;
-
-  spawnPoints: SpawnPoint[];
-  polygons: Polygon[];
-  turrets: TurretPosition[];
-  powerPlant: ObjectPosition;
-  podPedestal: ObjectPosition;
-  fuel: ObjectPosition[];
-  switches: SwitchPosition[];
-  doorConfig: DoorConfig | null;
-
-  landscapeLeftRasterisedPolygonPixels?: RasterPolygon;
-  landscapeRightRasterisedPolygonPixels?: RasterPolygon;
-};
 export const levels: Level[] = [
     {
         name: "Level 0",

@@ -14,7 +14,6 @@ import {renderFuelBeams} from "./fuelCollection";
 import {getDoorPolygon, triggerDoor} from "./doors";
 import {handleGeneratorHit} from "./generator";
 import {renderStars} from "./stars";
-import {bbcMicroColours} from "./rendering";
 import {createTitleScreen, resetTitleScreen, updateTitleScreen, renderTitleScreen, startKeyRemap, handleRemapKey} from "./titleScreen";
 import {PostProcessor} from "./postProcessing";
 import {ThrustSounds} from "./sound";
@@ -228,7 +227,7 @@ async function startGame() {
       }
 
       if (game.physics.state.podAttached) {
-        drawRemappedSprite(ctx, game.level.remappedPodSprite, podCX - Math.floor(podSprite.width / 2), podCY - Math.floor(podSprite.height / 2));
+        drawRemappedSprite(ctx, game.level.remappedPodSprite!, podCX - Math.floor(podSprite.width / 2), podCY - Math.floor(podSprite.height / 2));
       }
     }
 
@@ -965,12 +964,8 @@ async function startGame() {
 
       drawRemappedSprite(
         ctx,
-        shipSprite,
-        //Math.round(debugMouseX2 - shipSprite.centerX),
-        //Math.round(debugMouseY2 - shipSprite.centerY),
-        shipDrawX,shipDrawY,
-        colour,
-        colour,
+        shipSprite.bitmap,
+        shipDrawX,shipDrawY
       );
 
       ctx.fillStyle = "#000000";
