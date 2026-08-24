@@ -85,6 +85,7 @@ const ANGLE_SEARCH_STEP_INT_INITIAL = 0x0A;
 const ANGLE_SEARCH_STEP_FRAC_INITIAL = 0xAB;
 const ANGLE_SEARCH_PASSES = 7;
 const ANGLE_SEARCH_CANDIDATES = 3;
+const WORLD_WIDTH_WC=256; // width of world in world coordinates.
 
 /** Convert the original signed Q7.8 pair to a float. */
 function q78ToFloat(intByte: number, fracByte: number): number {
@@ -217,6 +218,7 @@ export interface ThrustState {
 
   /** When true, gravity pulls upward instead of downward */
   reverseGravity: boolean;
+  playerWorldWrapX: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,6 +267,7 @@ export class ThrustPhysics {
       podY: 0,
       level: 0,
       reverseGravity: false,
+      playerWorldWrapX: 0,
       ...initialState,
     };
   }
@@ -361,6 +364,10 @@ export class ThrustPhysics {
     s.vy = s.velocityY;
     s.x += s.velocityX;
     s.y += s.velocityY;
+    if (s.x-s.playerWorldWrapX>WORLD_WIDTH_WC)
+      s.playerWorldWrapX+=WORLD_WIDTH_WC;
+    if (s.x-s.playerWorldWrapX<0)
+      s.playerWorldWrapX-=WORLD_WIDTH_WC;
 
     // Angular velocity integration (every tick, pod attached only)
     if (s.podAttached) {

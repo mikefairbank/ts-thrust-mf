@@ -183,7 +183,7 @@ async function startGame() {
     const doorPoly = getDoorPolygon(game.doorState, game.level.doorConfig);
     const shieldGate = (game.fuelTickCounter & SHIELD_GATE_MASK) !== 0;
 
-    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.rotation, shipSprites, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSpriteGreen : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
+    renderLevel(ctx, effectiveLevel, game.player.x, game.player.y, game.player.playerWorldWrapX, game.player.rotation, shipSprites, camX, camY, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, (game.shieldActive&&shieldGate) ? shieldSpriteGreen : undefined, game.destroyedTurrets, game.destroyedFuel, game.generator.destroyed, game.generator.visible, podDetached, shouldHideShip, doorPoly, switchSprites);
 
     renderBullets(ctx, game.turretFiring.bullets, camX, camY, lineColor);
     renderPlayerBullets(ctx, game.playerShooting, camX, camY, lineColor);
@@ -736,14 +736,14 @@ async function startGame() {
       game.playerShooting, game.level,
       doorPolyCollision, game.destroyedTurrets, game.destroyedFuel,
       game.generator.destroyed, podStandRemovedFromCollision,
-      game.physics.state.podX, game.physics.state.podY,
+      game.physics.state.podX-game.player.playerWorldWrapX, game.physics.state.podY,
       fuelSprite, turretSprites, powerPlantSprite, podStandSprite, podSprite, switchSprites);
 
     // Gun explosions: type 2 ($0F) = colour 1 = yellow
     for (const idx of bulletHits.hitTurrets) {
       game.destroyedTurrets.add(idx);
       const t = game.level.turrets[idx];
-      spawnExplosion(game.explosions, t.x + 2, t.y + 4, bbcMicroColours.yellow);
+      spawnExplosion(game.explosions, t.x + 2 +game.player.playerWorldWrapX, t.y + 4, bbcMicroColours.yellow);
       addScore(game, SCORE_GUN_DESTROYED);
       sounds.playExplosion();
     }
@@ -752,7 +752,7 @@ async function startGame() {
     for (const idx of bulletHits.hitFuel) {
       game.destroyedFuel.add(idx);
       const f = game.level.fuel[idx];
-      spawnExplosion(game.explosions, f.x + 2, f.y + 4, fuelExplosionColour);
+      spawnExplosion(game.explosions, f.x + 2 +game.player.playerWorldWrapX, f.y + 4, fuelExplosionColour);
       addScore(game, SCORE_FUEL_SHOT);
       sounds.playExplosion();
     }

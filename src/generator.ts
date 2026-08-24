@@ -48,6 +48,7 @@ export function tickGenerator(
   state: GeneratorState,
   explosions: ExplosionState,
   level: Level,
+  playerWorldWrapX: number,
 ): { playerKilled: boolean } {
   let playerKilled = false;
   state.countdownBeepThisTick = false;
@@ -86,7 +87,7 @@ export function tickGenerator(
   // Smoke: if not destroyed, turretDisableTimer === 0, planetCountdown < 0, every 16 ticks
   if (!state.destroyed && state.turretDisableTimer === 0 && state.planetCountdown < 0 && (state.tickCounter & SMOKE_INTERVAL_MASK) === 0) {
     explosions.particles.push({
-      x: level.powerPlant.x + GENERATOR_SMOKE_OFFSET_X,
+      x: level.powerPlant.x + GENERATOR_SMOKE_OFFSET_X + playerWorldWrapX,
       y: level.powerPlant.y - 1.5,
       dx: 0,
       dy: -0.2,

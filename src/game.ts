@@ -89,6 +89,7 @@ export interface GameState {
     x: number;
     y: number;
     rotation: number;
+    playerWorldWrapX: number; // increases to a multiple of +WORLD_WIDTH_WC every time player wraps the world
   };
   fuel: number;
   lives: number;
@@ -177,8 +178,6 @@ function selectSpawnPoint(
     respawnWithPod = false;
   }
 
-  //console.log("points.length", points.length,"selectedIndex", selectedIndex, "respawnWithPod", respawnWithPod);
-
   return {
     spawnPoint: points[selectedIndex],
     respawnWithPod,
@@ -243,6 +242,7 @@ export function createGame(
       x: spawn.midpointX,
       y: spawn.midpointY,
       rotation: (startAngle / 32) * Math.PI * 2,
+      playerWorldWrapX: 0,
     },
     fuel: persistent?.fuel ?? INITIAL_FUEL,
     lives: persistent?.lives ?? 4,
@@ -461,6 +461,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
   // Use shipX/shipY — equals x,y when no pod, derived from midpoint when attached
   state.player.x = state.physics.state.shipX;
   state.player.y = state.physics.state.shipY;
+  state.player.playerWorldWrapX=state.physics.state.playerWorldWrapX;
   state.player.rotation = state.physics.angleRadians;
 
   // Update scroll at 50 Hz fixed timestep
@@ -510,8 +511,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
     tickTurrets(
         state.turretFiring,
         state.level,
-        state.player.x,
-        state.player.y,
+        state.player.playerWorldWrapX,
         camX,
         camY,
         320,
@@ -543,7 +543,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
         state.level.terrainColor,
     );
 
-    const genResult = tickGenerator(state.generator, state.explosions, state.level);
+    const genResult = tickGenerator(state.generator, state.explosions, state.level, state.player.playerWorldWrapX);
     if (genResult.playerKilled) {
       state.planetKilled = true;
     }
@@ -554,7 +554,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
     tickFuelCollection(
         state.fuelCollection,
         state.level,
-        state.player.x,
+        state.player.x-state.player.playerWorldWrapX,
         state.player.y,
         spacebarDown && !state.fuelEmpty,
         state.physics.state.podAttached,

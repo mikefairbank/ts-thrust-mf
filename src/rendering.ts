@@ -328,6 +328,7 @@ export function renderLevel(
   level: Level,
   playerX: number,
   playerY: number,
+  playerWorldWrapX: number,
   playerRotation: number,
   shipSprites: LoadedSprite[],
   camX: number,
@@ -355,7 +356,7 @@ export function renderLevel(
   // Draw terrain polygons at three offsets to handle wrapping.
   // Offsets are computed dynamically so terrain stays visible even when the
   // camera has travelled more than one world-width from the origin.
-  const baseOffset = Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
+  const baseOffset = playerWorldWrapX*WORLD_SCALE_X; // Math.round(camX / WORLD_WIDTH) * WORLD_WIDTH;
   const offsets = [baseOffset - WORLD_WIDTH, baseOffset, baseOffset + WORLD_WIDTH];
   for (const offset of offsets) {
     fillRasteredPolygonPixelCoords(ctx,level.landscapeLeftRasterisedPolygonPixels,level.terrainColor,camX - offset,camY);

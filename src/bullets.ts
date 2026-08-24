@@ -70,8 +70,7 @@ export function getHostileGunShootProbability(
 export function tickTurrets(
   state: TurretFiringState,
   level: Level,
-  playerX: number,
-  playerY: number,
+  playerWorldWrapX: number,
   camX: number,
   camY: number,
   viewportW: number,
@@ -88,7 +87,7 @@ export function tickTurrets(
     if (gunsSuppressed) continue;
 
     // Gate: visibility — convert turret world pos to screen
-    const screenX = turret.x * WORLD_SCALE_X - camX;
+    const screenX = (turret.x+playerWorldWrapX) * WORLD_SCALE_X - camX;
     const screenY = turret.y * WORLD_SCALE_Y - camY;
     if (screenX < 0 || screenX >= viewportW || screenY < 0 || screenY >= viewportH) continue;
 
@@ -119,7 +118,7 @@ export function tickTurrets(
 
     // Spawn bullet in world coordinates
     state.bullets.push({
-      x: turret.x + offset.x,
+      x: turret.x + offset.x + playerWorldWrapX,
       y: turret.y + offset.y,
       dx,
       dy,
