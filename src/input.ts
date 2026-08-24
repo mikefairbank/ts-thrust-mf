@@ -45,9 +45,9 @@ export interface KeyBindings {
 }
 
 const DEFAULT_BINDINGS: KeyBindings = {
-  thrust:      "KeyW",
+  thrust:      "ShiftRight",
   rotateLeft:  "KeyA",
-  rotateRight: "KeyD",
+  rotateRight: "KeyS",
   fire:        "Enter",
   shield:      "Space",
 };
