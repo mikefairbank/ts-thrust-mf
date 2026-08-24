@@ -553,7 +553,7 @@ async function startGame() {
           }
           processOrbitEscape();
         }
-        renderScene();
+        renderScene(wasDisappearing);
         game.teleport = null;
       } else {
         // Calculate size: expand 1→6, contract 6→1
@@ -562,10 +562,10 @@ async function startGame() {
         const isExpansion = step < 6;
 
         // Ship visibility per spec table
-        const shipVisible = size >= TELEPORT_VISIBILITY_THRESHOLD ||
-          (game.teleport.isDisappearing ? isExpansion : !isExpansion);
+        const shipVisible = size <= TELEPORT_VISIBILITY_THRESHOLD;
+        const shipHidden = (game.teleport.isDisappearing ? !isExpansion : isExpansion);
 
-        renderScene(!shipVisible);
+        renderScene(!shipVisible || shipHidden);
 
         // Draw teleport rectangles
         drawTeleportEffect(ctx, game.teleport.shipCX, game.teleport.shipCY, size, bbcMicroColours.yellow);
