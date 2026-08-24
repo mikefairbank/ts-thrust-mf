@@ -103,3 +103,156 @@ export function updateScroll(
   state.windowPos.x += state.scrollSpeed.x;
   state.windowPos.y += state.scrollSpeed.y;
 }
+
+/*export function updateScrollNew(
+  midpointWorld: { x: number; y: number },
+  forceVector: { x: number; y: number },
+  state: ScrollState,
+  config: ScrollConfig,
+): void {
+
+  //
+  // Apply previous frame's scroll first
+  //
+  state.windowPos.x += state.scrollSpeed.x;
+  state.windowPos.y += state.scrollSpeed.y;
+
+  //
+  // Midpoint relative to window
+  //
+  const midpointViewY =
+    midpointWorld.y -
+    state.windowPos.y -
+    config.statusBarOffset;
+
+  const midpointViewX =
+    midpointWorld.x -
+    state.windowPos.x;
+
+  //
+  // Integer velocity like BBC
+  //
+  const vy = Math.round(forceVector.y);
+
+  //
+  // ----- Vertical -----
+  //
+  if (vy >= 0) {
+
+    if (midpointViewY >= config.yScrollDownTrigger) {
+
+      state.scrollSpeed.y = vy + 1;
+
+    } else {
+
+      if (state.scrollSpeed.y > 0) {
+
+        if (vy + 1 < state.scrollSpeed.y) {
+          state.scrollSpeed.y--;
+          if (state.scrollSpeed.y === 0) {
+            state.scrollSpeed.y = 1;
+          }
+        }
+      }
+    }
+
+  } else {
+
+    if (midpointViewY <= config.yScrollUpTrigger) {
+
+      state.scrollSpeed.y = vy - 1;
+
+    } else {
+
+      if (state.scrollSpeed.y < 0) {
+
+        if (state.scrollSpeed.y < vy) {
+          state.scrollSpeed.y++;
+          if (state.scrollSpeed.y === 0) {
+            state.scrollSpeed.y = -1;
+          }
+        }
+      }
+    }
+  }
+
+  //
+  // BBC hard-brake zone
+  //
+  if (state.scrollSpeed.y > 0) {
+
+    if (midpointViewY < config.yBrakeUpStop) {
+      state.scrollSpeed.y = 0;
+    }
+
+  } else if (state.scrollSpeed.y < 0) {
+
+    if (midpointViewY > config.yBrakeDownStop) {
+      state.scrollSpeed.y = 0;
+    }
+  }
+
+  //
+  // ----- Horizontal -----
+  //
+  if (midpointViewX < config.xScrollLeftTrigger) {
+
+    state.scrollSpeed.x =
+      Math.round(
+        midpointViewX -
+        config.xScrollLeftTrigger
+      );
+
+  } else if (midpointViewX > config.xScrollRightTrigger) {
+
+    state.scrollSpeed.x =
+      Math.round(
+        midpointViewX -
+        config.xScrollRightTrigger
+      );
+
+  }
+
+  if (state.scrollSpeed.x > 0) {
+
+    if (midpointViewX < config.xBrakeRightStop) {
+
+      state.scrollSpeed.x = 0;
+
+    } else if (
+      midpointViewX <
+      config.xScrollRightTrigger
+    ) {
+
+      state.scrollSpeed.x--;
+
+      if (state.scrollSpeed.x === 0) {
+        state.scrollSpeed.x = 1;
+      }
+    }
+
+  } else if (state.scrollSpeed.x < 0) {
+
+    if (midpointViewX > config.xBrakeLeftStop) {
+
+      state.scrollSpeed.x = 0;
+
+    } else if (
+      midpointViewX >
+      config.xScrollLeftTrigger
+    ) {
+
+      state.scrollSpeed.x++;
+
+      if (state.scrollSpeed.x === 0) {
+        state.scrollSpeed.x = -1;
+      }
+    }
+  }
+
+  //
+  // BBC uses integer scroll values
+  //
+  state.scrollSpeed.x = Math.round(state.scrollSpeed.x);
+  state.scrollSpeed.y = Math.round(state.scrollSpeed.y);
+}*/

@@ -616,14 +616,15 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
   // Ensure scroll updates at least once per frame to stay in sync with physics.
   // Without this, frames where the 50Hz accumulator doesn't trigger leave the
   // camera stale while ship/pod positions have advanced, causing visible jitter.
-  if (!scrollUpdated) {
+  // Update 2026-08-24.  Removed this block as it seems to be the cause of jitter.
+  /*if (!scrollUpdated) {   
     updateScroll(
         { x: state.physics.state.shipX, y: state.physics.state.shipY },
         { x: state.physics.state.velocityX, y: state.physics.state.velocityY },
         state.scroll,
         state.scrollConfig,
     );
-  }
+  }*/
 }
 
 /** Reset level state for retry — preserves score, lives, levelNumber, missionNumber. */
