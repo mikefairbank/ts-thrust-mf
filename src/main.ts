@@ -455,6 +455,12 @@ async function startGame() {
           requestAnimationFrame(frame);
           return;
         }
+        // NO HIGH SCORE
+        resetTitleScreen(title);
+        game = createGame(levels[0], 0);
+        postProcessFrame(time);
+        requestAnimationFrame(frame);
+        return;
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -496,8 +502,7 @@ async function startGame() {
             game = advanceToNextLevel(game);
             break;
           case 'game-over':
-            resetTitleScreen(title);
-            game = createGame(levels[0], 0);
+            game.gameOver = true;
             break;            
         }
         game.pendingAction = null;
