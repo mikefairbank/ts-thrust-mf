@@ -42,16 +42,16 @@ export function createScrollConfig(
 }
 
 export function createScrollState(
-  midpointX: number,
-  midpointY: number,
+  windowX: number,
+  windowY: number,
   viewportWidth: number,
   viewportHeight: number,
   statusBarOffset: number,
 ): ScrollState {
   return {
     windowPos: {
-      x: midpointX - viewportWidth / 2,
-      y: midpointY - (viewportHeight + statusBarOffset) / 2,
+      x: windowX - 7,
+      y: windowY + 50,
     },
     scrollSpeed: { x: 0, y: 0 },
   };

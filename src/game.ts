@@ -196,8 +196,8 @@ function applySpawnPoint(state: GameState, spawn: SpawnPoint): void {
   state.oldShipX = spawn.midpointX;
   state.oldShipY = spawn.midpointY;
   const fresh = createScrollState(
-    spawn.midpointX,
-    spawn.midpointY,
+    spawn.windowX,
+    spawn.windowY,
     VIEWPORT_W,
     VIEWPORT_H,
     STATUS_BAR_H,
@@ -226,8 +226,8 @@ export function createGame(
 
   const scrollConfig = createScrollConfig(VIEWPORT_W, VIEWPORT_H, STATUS_BAR_H);
   const scroll = createScrollState(
-      spawn.midpointX,
-      spawn.midpointY,
+      spawn.windowX,
+      spawn.windowY,
       VIEWPORT_W,
       VIEWPORT_H,
       STATUS_BAR_H,
