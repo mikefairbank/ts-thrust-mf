@@ -457,7 +457,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
     shield: spacebarDown && !state.fuelEmpty,
   };
 
-  state.physics.update(dt, input, dying && state.deathSequence.shipDestroyed);
+  state.physics.update(dt, input, dying && state.deathSequence!.shipDestroyed);
 
   // Use shipX/shipY — equals x,y when no pod, derived from midpoint when attached
   state.player.x = state.physics.state.shipX;
