@@ -59,96 +59,44 @@ export function createScrollState(
 
 export function updateScroll(
   midpointWorld: { x: number; y: number },
-  forceVector: { x: number; y: number },
-  state: ScrollState,
-  config: ScrollConfig,
-): void {
-  // --- Y axis (proportional to overshoot, same approach as X) ---
-  const midpointViewY = midpointWorld.y - state.windowPos.y - config.statusBarOffset;
-
-  if (midpointViewY < config.yScrollUpTrigger) {
-    // Outside dead zone above — scroll speed proportional to overshoot
-    state.scrollSpeed.y = midpointViewY - config.yScrollUpTrigger;
-  } else if (midpointViewY > config.yScrollDownTrigger) {
-    // Outside dead zone below
-    state.scrollSpeed.y = midpointViewY - config.yScrollDownTrigger;
-  } else {
-    // Inside dead zone — decelerate toward zero
-    if (state.scrollSpeed.y > 0) {
-      state.scrollSpeed.y = Math.max(0, state.scrollSpeed.y - 1);
-    } else if (state.scrollSpeed.y < 0) {
-      state.scrollSpeed.y = Math.min(0, state.scrollSpeed.y + 1);
-    }
-  }
-
-  // --- X axis ---
-  const midpointViewX = midpointWorld.x - state.windowPos.x;
-
-  if (midpointViewX < config.xScrollLeftTrigger) {
-    // Outside dead zone left — scroll speed proportional to overshoot
-    state.scrollSpeed.x = midpointViewX - config.xScrollLeftTrigger;
-  } else if (midpointViewX > config.xScrollRightTrigger) {
-    // Outside dead zone right
-    state.scrollSpeed.x = midpointViewX - config.xScrollRightTrigger;
-  } else {
-    // Inside dead zone — decelerate toward zero (float-safe, no sign-flip)
-    if (state.scrollSpeed.x > 0) {
-      state.scrollSpeed.x = Math.max(0, state.scrollSpeed.x - 1);
-    } else if (state.scrollSpeed.x < 0) {
-      state.scrollSpeed.x = Math.min(0, state.scrollSpeed.x + 1);
-    }
-  }
-
-  // Apply scroll to window position
-  state.windowPos.x += state.scrollSpeed.x;
-  state.windowPos.y += state.scrollSpeed.y;
-}
-
-/*export function updateScrollNew(
-  midpointWorld: { x: number; y: number },
-  forceVector: { x: number; y: number },
+  velocityVector: { x: number; y: number },
   state: ScrollState,
   config: ScrollConfig,
 ): void {
 
-  //
-  // Apply previous frame's scroll first
-  //
-  state.windowPos.x += state.scrollSpeed.x;
-  state.windowPos.y += state.scrollSpeed.y;
+  // -----------------------------
+  // Y AXIS
+  // -----------------------------
 
-  //
-  // Midpoint relative to window
-  //
   const midpointViewY =
     midpointWorld.y -
     state.windowPos.y -
     config.statusBarOffset;
 
-  const midpointViewX =
-    midpointWorld.x -
-    state.windowPos.x;
+  const vy = Math.round(velocityVector.y);
 
-  //
-  // Integer velocity like BBC
-  //
-  const vy = Math.round(forceVector.y);
+  console.assert(
+    config.yScrollUpTrigger <
+    config.yBrakeUpStop <
+    config.yBrakeDownStop <
+    config.yScrollDownTrigger
+  );
 
-  //
-  // ----- Vertical -----
-  //
   if (vy >= 0) {
 
+    // Beyond lower trigger
     if (midpointViewY >= config.yScrollDownTrigger) {
-
       state.scrollSpeed.y = vy + 1;
-
     } else {
 
+      // Don't fight upward scrolling
       if (state.scrollSpeed.y > 0) {
+        const target = vy + 1;
 
-        if (vy + 1 < state.scrollSpeed.y) {
-          state.scrollSpeed.y--;
+        if (state.scrollSpeed.y > target) {
+          state.scrollSpeed.y -= 1;
+
+          // BBC stabilisation at ±1
           if (state.scrollSpeed.y === 0) {
             state.scrollSpeed.y = 1;
           }
@@ -156,103 +104,116 @@ export function updateScroll(
       }
     }
 
+    // Hard brake zone
+    if (
+      state.scrollSpeed.y > 0 &&
+      midpointViewY < config.yBrakeUpStop
+    ) {
+      state.scrollSpeed.y = 0;
+    }
+
   } else {
 
+    // Beyond upper trigger
     if (midpointViewY <= config.yScrollUpTrigger) {
-
       state.scrollSpeed.y = vy - 1;
-
     } else {
 
+      // Don't fight downward scrolling
       if (state.scrollSpeed.y < 0) {
+        const target = vy - 1;
 
-        if (state.scrollSpeed.y < vy) {
-          state.scrollSpeed.y++;
+        if (state.scrollSpeed.y < target) {
+          state.scrollSpeed.y += 1;
+
+          // BBC stabilisation at ±1
           if (state.scrollSpeed.y === 0) {
             state.scrollSpeed.y = -1;
           }
         }
       }
     }
-  }
 
-  //
-  // BBC hard-brake zone
-  //
-  if (state.scrollSpeed.y > 0) {
-
-    if (midpointViewY < config.yBrakeUpStop) {
-      state.scrollSpeed.y = 0;
-    }
-
-  } else if (state.scrollSpeed.y < 0) {
-
-    if (midpointViewY > config.yBrakeDownStop) {
+    // Hard brake zone
+    if (
+      state.scrollSpeed.y < 0 &&
+      midpointViewY > config.yBrakeDownStop
+    ) {
       state.scrollSpeed.y = 0;
     }
   }
 
-  //
-  // ----- Horizontal -----
-  //
+  // -----------------------------
+  // X AXIS
+  // -----------------------------
+
+  const midpointViewX =
+    midpointWorld.x -
+    state.windowPos.x;
+
+  // Trigger scrolling
+
   if (midpointViewX < config.xScrollLeftTrigger) {
 
-    state.scrollSpeed.x =
-      Math.round(
-        midpointViewX -
-        config.xScrollLeftTrigger
-      );
+    // Need to scroll left
+    state.scrollSpeed.x = Math.min(
+      state.scrollSpeed.x,
+      midpointViewX - config.xScrollLeftTrigger
+    );
 
   } else if (midpointViewX > config.xScrollRightTrigger) {
 
-    state.scrollSpeed.x =
-      Math.round(
-        midpointViewX -
-        config.xScrollRightTrigger
-      );
-
+    // Need to scroll right
+    state.scrollSpeed.x = Math.max(
+      state.scrollSpeed.x,
+      midpointViewX - config.xScrollRightTrigger
+    );
   }
+
+  // Braking / hysteresis
+
+  console.assert(
+    config.xScrollLeftTrigger <
+    config.xBrakeLeftStop &&
+    config.xBrakeLeftStop <
+    config.xBrakeRightStop &&
+    config.xBrakeRightStop <
+    config.xScrollRightTrigger
+  );
 
   if (state.scrollSpeed.x > 0) {
 
-    if (midpointViewX < config.xBrakeRightStop) {
+    // Camera scrolling right
 
+    if (midpointViewX < config.xBrakeLeftStop) {
       state.scrollSpeed.x = 0;
+    }
+    else if (midpointViewX < config.xScrollRightTrigger) {
+      state.scrollSpeed.x -= 1;
 
-    } else if (
-      midpointViewX <
-      config.xScrollRightTrigger
-    ) {
-
-      state.scrollSpeed.x--;
-
-      if (state.scrollSpeed.x === 0) {
+      if (state.scrollSpeed.x <= 0) {
         state.scrollSpeed.x = 1;
       }
     }
 
   } else if (state.scrollSpeed.x < 0) {
 
-    if (midpointViewX > config.xBrakeLeftStop) {
+    // Camera scrolling left
 
+    if (midpointViewX > config.xBrakeRightStop) {
       state.scrollSpeed.x = 0;
+    }
+    else if (midpointViewX > config.xScrollLeftTrigger) {
+      state.scrollSpeed.x += 1;
 
-    } else if (
-      midpointViewX >
-      config.xScrollLeftTrigger
-    ) {
-
-      state.scrollSpeed.x++;
-
-      if (state.scrollSpeed.x === 0) {
+      if (state.scrollSpeed.x >= 0) {
         state.scrollSpeed.x = -1;
       }
     }
   }
 
-  //
-  // BBC uses integer scroll values
-  //
-  state.scrollSpeed.x = Math.round(state.scrollSpeed.x);
-  state.scrollSpeed.y = Math.round(state.scrollSpeed.y);
-}*/
+  // Apply scroll
+
+  state.windowPos.x += state.scrollSpeed.x;
+  state.windowPos.y += state.scrollSpeed.y;
+}
