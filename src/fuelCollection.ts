@@ -2,8 +2,8 @@ import { Level } from "./levels";
 import { GameState, addScore } from "./game";
 
 // Fuel collection constants
-const FUEL_PICKUP_RANGE_X = 6;
-const FUEL_PICKUP_RANGE_Y = 28;
+const FUEL_PICKUP_RANGE_X = 6-4; // reduced by 4 to match 6502 game logic,  6502 pickup x range is only 5 pixels wide, i.e. abs(deltaX)<=2.  This is a 5 pixel width.
+const FUEL_PICKUP_RANGE_Y = 28-4; // this -4 was needed to visually match the 6502 gameplay.  This -4 comes from ship height (16 pixels), divided by 2 (to get ship midpoint), divided by  WORLD_SCALE_Y.  16/2/2 = 4 divided by 2
 const FUEL_TRACTOR_THRESHOLD = 26;
 const FUEL_SCORE = 300;
 const FUEL_ADD_PER_TICK = 11;
@@ -49,7 +49,7 @@ export function tickFuelCollection(
     if (destroyedFuel.has(i)) continue;
 
     const fuel = level.fuel[i];
-    const dx = Math.abs(fuel.x - playerX);
+    const dx = Math.abs(fuel.x+2 - playerX); // +2 is to find centre of fuel tank (16 pixels wide=4 world units.  So centre is 2 pixels right).
     if (dx >= FUEL_PICKUP_RANGE_X) continue;
 
     const dy = Math.abs(fuel.y - playerY);
