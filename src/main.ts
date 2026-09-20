@@ -8,7 +8,7 @@ import shieldPng from "./sprites/shield.png";
 import {levels, initialiseLevelSprites} from "./levels";
 import {createGame, tick, retryLevel, triggerMessage, advanceToNextLevel, missionComplete, addScore, startTeleport, MESSAGE_DURATION, destroyPlayerShip, destroyAttachedPod, getPlanetExplodeBgColor, SHIELD_GATE_MASK} from "./game";
 import {testCollision, CollisionResult, checkForLevelItemCollision, checkSpriteCollisionWithTerrain} from "./collision";
-import {renderBullets, removeBulletsHittingShip, removeCollidingBullets, renderPlayerBullets, processPlayerBulletCollisions} from "./bullets";
+import {renderBullets, removeBulletsHittingShip, removeCollidingBullets, renderPlayerBullets, processPlayerBulletCollisions, tickTurrets} from "./bullets";
 import {renderExplosions, spawnExplosion, orColours} from "./explosions";
 import {renderFuelBeams} from "./fuelCollection";
 import {getDoorPolygon, triggerDoor} from "./doors";
@@ -349,6 +349,22 @@ async function startGame() {
     // Title screen — show terrain with text overlay, no ship
     if (title.active) {
       updateTitleScreen(title, dt);
+      
+      const state = game;
+      const camX = Math.round(game.scroll.windowPos.x * WORLD_SCALE_X);
+      const camY = Math.round(game.scroll.windowPos.y * WORLD_SCALE_Y);
+
+      tickTurrets(
+        state.turretFiring,
+        state.level,
+        state.player.playerWorldWrapX,
+        camX,
+        camY,
+        320,
+        256,
+        state.destroyedTurrets,
+        false,
+      );
 
       // Scoreboard timed out → start demo
       if (title.demoRequested) {
