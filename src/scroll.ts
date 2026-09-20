@@ -75,13 +75,6 @@ export function updateScroll(
 
   const vy = Math.round(velocityVector.y);
 
-  console.assert(
-    config.yScrollUpTrigger <
-    config.yBrakeUpStop <
-    config.yBrakeDownStop <
-    config.yScrollDownTrigger
-  );
-
   if (vy >= 0) {
 
     // Beyond lower trigger
@@ -171,15 +164,6 @@ export function updateScroll(
   }
 
   // Braking / hysteresis
-
-  console.assert(
-    config.xScrollLeftTrigger <
-    config.xBrakeLeftStop &&
-    config.xBrakeLeftStop <
-    config.xBrakeRightStop &&
-    config.xBrakeRightStop <
-    config.xScrollRightTrigger
-  );
 
   if (state.scrollSpeed.x > 0) {
 
