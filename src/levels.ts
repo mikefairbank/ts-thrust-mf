@@ -363,5 +363,11 @@ export async function initialiseLevelSprites(
     level.remappedTurretUpRightSprite = await getRemappedSprite(turretSprites.upRight, level.objectColor, level.terrainColor);
     level.remappedTurretDownLeftSprite = await getRemappedSprite(turretSprites.downLeft, level.objectColor, level.terrainColor);
     level.remappedTurretDownRightSprite = await getRemappedSprite(turretSprites.downRight, level.objectColor, level.terrainColor);
+    for (const sp of level.spawnPoints) {
+      // original game stored spawn points pointing to top of ship sprite.
+      // But this port refers to spawn points at centre of ship.
+      // correct for this here:
+      sp.midpointY-=5; // move up half the world height of the ship sprite.
+    }
   }
 }
