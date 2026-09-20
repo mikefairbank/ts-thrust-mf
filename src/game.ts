@@ -209,7 +209,7 @@ function applySpawnPoint(state: GameState, spawn: SpawnPoint): void {
 export function createGame(
   level: Level,
   levelNumber: number = 0,
-  persistent?: { lives: number; score: number; fuel: number; missionNumber: number; reverseGravity?: boolean; invisibleLandscape?: boolean },
+  persistent?: { lives?: number; score?: number; fuel?: number; missionNumber?: number; reverseGravity?: boolean; invisibleLandscape?: boolean },
 ): GameState {
   const reverseGravity = persistent?.reverseGravity ?? false;
   const invisibleLandscape = persistent?.invisibleLandscape ?? false;

@@ -299,13 +299,13 @@ export async function getRemappedSprite(
 
 function getTurretSprite(
   direction: TurretDirection,
-  level,
+  level: Level,
 ): ImageBitmap {
   switch (direction) {
-    case 'up_left': return level.remappedTurretUpLeftSprite;
-    case 'up_right': return level.remappedTurretUpRightSprite;
-    case 'down_left': return level.remappedTurretDownLeftSprite;
-    case 'down_right': return level.remappedTurretDownRightSprite;
+    case 'up_left': return level.remappedTurretUpLeftSprite!;
+    case 'up_right': return level.remappedTurretUpRightSprite!;
+    case 'down_left': return level.remappedTurretDownLeftSprite!;
+    case 'down_right': return level.remappedTurretDownRightSprite!;
   }
 }
 

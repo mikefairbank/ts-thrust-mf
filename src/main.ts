@@ -354,17 +354,7 @@ async function startGame() {
       const camX = Math.round(game.scroll.windowPos.x * WORLD_SCALE_X);
       const camY = Math.round(game.scroll.windowPos.y * WORLD_SCALE_Y);
 
-      tickTurrets(
-        state.turretFiring,
-        state.level,
-        state.player.playerWorldWrapX,
-        camX,
-        camY,
-        320,
-        256,
-        state.destroyedTurrets,
-        false,
-      );
+      tickTurrets(state.turretFiring,state.level, state.player.playerWorldWrapX, camX, camY, 320, 256, state.destroyedTurrets, false, );
 
       // Scoreboard timed out → start demo
       if (title.demoRequested) {
@@ -973,7 +963,7 @@ async function startGame() {
       );
 
       if (itemHit) {
-        text = itemHit.type;
+        text = itemHit!.type;
         colour = "#ffff00";
       }
       
