@@ -299,13 +299,13 @@ export class ThrustPhysics {
   // Main update
   // -----------------------------------------------------------------------
 
-  update(dtSeconds: number, input: ThrustInput): void {
+  update(dtSeconds: number, input: ThrustInput, freezeShipMotion: boolean): void {
     const dt = Math.min(dtSeconds, 0.1);
 
     this.accumulator += dt;
     while (this.accumulator >= ORIGINAL_FRAME_S) {
       this.accumulator -= ORIGINAL_FRAME_S;
-      this.tickStep(input);
+      this.tickStep(input, freezeShipMotion);
     }
 
     // Re-derive positions every frame for smooth rendering
@@ -316,7 +316,7 @@ export class ThrustPhysics {
   // Internal — per-tick step
   // -----------------------------------------------------------------------
 
-  private tickStep(input: ThrustInput): void {
+  private tickStep(input: ThrustInput, freezeShipMotion: boolean): void {
     const slot = this.tickCounter & TICK_SLOT_MASK;
     this.tickCounter = (this.tickCounter + 1) & BYTE_MASK;
 
@@ -360,10 +360,12 @@ export class ThrustPhysics {
     }
 
     // --- Step 2: Position integration (every tick, both solo and attached) ---
-    s.vx = s.velocityX;
-    s.vy = s.velocityY;
-    s.x += s.velocityX;
-    s.y += s.velocityY;
+    if (!freezeShipMotion) {
+        s.vx = s.velocityX;
+        s.vy = s.velocityY;
+        s.x += s.velocityX;
+        s.y += s.velocityY;
+    }
     if (s.x-s.playerWorldWrapX>WORLD_WIDTH_WC)
       s.playerWorldWrapX+=WORLD_WIDTH_WC;
     if (s.x-s.playerWorldWrapX<0)

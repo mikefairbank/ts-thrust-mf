@@ -28,7 +28,7 @@ export function createScrollConfig(
     statusBarOffset: statusBarHeight,
 
     // Y: dead zone is ~33% of height, centred
-    yScrollUpTrigger:   Math.round(viewportHeight * 0.33),
+    yScrollUpTrigger:   Math.round(viewportHeight * 0.25),
     yBrakeUpStop:       Math.round(viewportHeight * 0.42),
     yBrakeDownStop:     Math.round(viewportHeight * 0.56),
     yScrollDownTrigger: Math.round(viewportHeight * 0.65),

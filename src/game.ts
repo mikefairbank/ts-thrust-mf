@@ -457,7 +457,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
     shield: spacebarDown && !state.fuelEmpty,
   };
 
-  state.physics.update(dt, input);
+  state.physics.update(dt, input, dying && state.deathSequence.shipDestroyed);
 
   // Use shipX/shipY — equals x,y when no pod, derived from midpoint when attached
   state.player.x = state.physics.state.shipX;
@@ -501,7 +501,7 @@ export function tick(state: GameState, dt: number, gameInput: GameInput): void {
     }
 
     updateScroll(
-        { x: state.physics.state.x, y: state.physics.state.y },
+        { x: state.physics.state.shipX, y: state.physics.state.shipY },
         { x: state.physics.state.velocityX, y: state.physics.state.velocityY },
         state.scroll,
         state.scrollConfig,
