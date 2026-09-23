@@ -188,10 +188,8 @@ async function startGame() {
     renderPlayerBullets(ctx, game.playerShooting, camX, camY, lineColor);
     renderExplosions(ctx, game.explosions, camX, camY);
 
-    const spriteIdx = rotationToSpriteIndex(game.player.rotation);
-    const shipSprite = shipSprites[spriteIdx];
-    const shipScreenX = Math.round(game.player.x * WORLD_SCALE_X - camX - shipSprite.centerX);
-    const shipScreenY = Math.round(game.player.y * WORLD_SCALE_Y - camY - shipSprite.centerY);
+    const shipScreenX = Math.round(game.player.x * WORLD_SCALE_X - camX);
+    const shipScreenY = Math.round(game.player.y * WORLD_SCALE_Y - camY);
     renderFuelBeams(ctx, game.fuelCollection, shipScreenX, shipScreenY);
 
     // Tractor beam / attachment line + attached pod rendering (skip during teleport)

@@ -9,8 +9,8 @@ const FUEL_SCORE = 300;
 const FUEL_ADD_PER_TICK = 11;
 
 // Beam rendering constants (screen pixels)
-const BEAM_Y_OFFSET = 20;
-const BEAM_X_OFFSET = -6;
+const BEAM_X_OFFSET = -6-10;// -10 is ship sprite half-width in pixels
+const BEAM_Y_OFFSET = 20-9; // -9 is ship sprite half-height in pixels
 const BEAM_LENGTH_Y = 30;
 const BEAM_LINE1_DX = 10;
 const BEAM_LINE2_GAP = 12;
