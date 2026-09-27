@@ -337,7 +337,7 @@ async function startGame() {
     lastTime = time;
     handlePostProcessKeys();
     
-    if (keys.has("Escape")) {
+    if (keys.has("Escape") && !highScoreEntry?.active) {
       exitDemoToTitle();
       postProcessFrame(time);
       requestAnimationFrame(frame);
@@ -412,8 +412,8 @@ async function startGame() {
       // Process character input from queue
       while (charQueue.length > 0) {
         const ch = charQueue.shift()!;
-        if (ch === "Enter") {
-          // Confirm name
+        if (ch === "Enter" || ch === "Escape") {
+          // Confirm name          
           const finalName = highScoreEntry.name || "PLAYER";
           const finalScores = insertScore(highScoreEntry.scores, highScoreEntry.rank, highScoreEntry.score, finalName);
           saveScores(finalScores);
@@ -600,7 +600,7 @@ async function startGame() {
     }
 
     // Escape aborts the game (as in the original) — disabled during demo
-    if (!demo.active && keys.has("Escape")) {
+    if (!demo.active && keys.has("Escape") && !highScoreEntry?.active) {
       keys.delete("Escape");
       paused = false;
       sounds.stopAll();
