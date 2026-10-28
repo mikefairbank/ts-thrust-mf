@@ -135,7 +135,7 @@ function drawTeleportEffect(
 async function startGame() {
   // Init WebGPU post-processing (non-blocking — gracefully degrades if unavailable)
   const ppReady = await postProcessor.init().catch(() => false);
-
+  
   const [shipSprites, fuelSprite, turretSprites, powerPlantSprite, podStandSprite, shieldSprite, podSprite, switchSprites] = await Promise.all([
     loadShipSprites(),
     loadSpriteWithMask(fuelPng),

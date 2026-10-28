@@ -28,10 +28,10 @@ export function createScrollConfig(
     statusBarOffset: statusBarHeight,
 
     // Y: dead zone is ~33% of height, centred
-    yScrollUpTrigger:   Math.round(viewportHeight * 0.25),
-    yBrakeUpStop:       Math.round(viewportHeight * 0.42),
-    yBrakeDownStop:     Math.round(viewportHeight * 0.56),
-    yScrollDownTrigger: Math.round(viewportHeight * 0.65),
+    yScrollUpTrigger:   Math.round(viewportHeight * 0.20),
+    yBrakeUpStop:       Math.round(viewportHeight * 0.56),
+    yBrakeDownStop:     Math.round(viewportHeight * 0.42),
+    yScrollDownTrigger: Math.round(viewportHeight * 0.70),
 
     // X: dead zone is ~50% of width, centred
     xScrollLeftTrigger:  Math.round(viewportWidth * 0.25),
@@ -73,18 +73,18 @@ export function updateScroll(
     state.windowPos.y -
     config.statusBarOffset;
 
-  const vy = Math.round(velocityVector.y);
+  const vy = velocityVector.y;
 
   if (vy >= 0) {
 
     // Beyond lower trigger
     if (midpointViewY >= config.yScrollDownTrigger) {
-      state.scrollSpeed.y = vy + 1;
+      state.scrollSpeed.y = Math.round(vy) + 1;
     } else {
 
       // Don't fight upward scrolling
       if (state.scrollSpeed.y > 0) {
-        const target = vy + 1;
+        const target = Math.round(vy) + 1;
 
         if (state.scrollSpeed.y > target) {
           state.scrollSpeed.y -= 1;
@@ -97,24 +97,17 @@ export function updateScroll(
       }
     }
 
-    // Hard brake zone
-    if (
-      state.scrollSpeed.y > 0 &&
-      midpointViewY < config.yBrakeUpStop
-    ) {
-      state.scrollSpeed.y = 0;
-    }
 
   } else {
 
     // Beyond upper trigger
     if (midpointViewY <= config.yScrollUpTrigger) {
-      state.scrollSpeed.y = vy - 1;
+      state.scrollSpeed.y = Math.round(vy) - 1;
     } else {
 
       // Don't fight downward scrolling
       if (state.scrollSpeed.y < 0) {
-        const target = vy - 1;
+        const target = Math.round(vy) - 1;
 
         if (state.scrollSpeed.y < target) {
           state.scrollSpeed.y += 1;
@@ -126,14 +119,21 @@ export function updateScroll(
         }
       }
     }
+  }
 
-    // Hard brake zone
-    if (
-      state.scrollSpeed.y < 0 &&
-      midpointViewY > config.yBrakeDownStop
-    ) {
-      state.scrollSpeed.y = 0;
-    }
+  // Hard brake zone
+  if (
+    state.scrollSpeed.y > 0 &&
+    midpointViewY < config.yBrakeUpStop
+  ) {
+    state.scrollSpeed.y = 0;
+  }
+  // Hard brake zone
+  if (
+    state.scrollSpeed.y < 0 &&
+    midpointViewY > config.yBrakeDownStop
+  ) {
+    state.scrollSpeed.y = 0;
   }
 
   // -----------------------------
