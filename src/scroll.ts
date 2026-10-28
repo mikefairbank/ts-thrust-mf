@@ -29,9 +29,9 @@ export function createScrollConfig(
 
     // Y: dead zone is ~33% of height, centred
     yScrollUpTrigger:   Math.round(viewportHeight * 0.20),
-    yBrakeUpStop:       Math.round(viewportHeight * 0.56),
+    yBrakeUpStop:       Math.round(viewportHeight * 0.52),
     yBrakeDownStop:     Math.round(viewportHeight * 0.42),
-    yScrollDownTrigger: Math.round(viewportHeight * 0.70),
+    yScrollDownTrigger: Math.round(viewportHeight * 0.66),
 
     // X: dead zone is ~50% of width, centred
     xScrollLeftTrigger:  Math.round(viewportWidth * 0.25),
